@@ -1,0 +1,29 @@
+package com.healthcare.appointmentservice.healthcare.appointmentservice.service;
+
+import com.healthcare.appointmentservice.healthcare.appointmentservice.dto.AppointmentCreateRequest;
+import com.healthcare.appointmentservice.healthcare.appointmentservice.dto.AppointmentResponse;
+import com.healthcare.appointmentservice.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
+import com.healthcare.appointmentservice.healthcare.appointmentservice.dto.StatusUpdateRequest;
+
+import java.util.List;
+
+public interface AppointmentService {
+
+    AppointmentResponse createAppointment(AppointmentCreateRequest request);
+
+    AppointmentResponse getAppointmentById(Long id);
+
+    List<AppointmentResponse> getAllAppointments();
+
+    List<AppointmentResponse> getAppointmentsByPatient(Long patientId);
+
+    List<AppointmentResponse> getAppointmentsByDoctor(Long doctorId);
+
+    AppointmentResponse updateAppointment(Long id, AppointmentUpdateRequest request);
+
+    AppointmentResponse updateStatus(Long id, StatusUpdateRequest request);
+
+    void cancelAppointment(Long id, String cancelReason);
+
+    List<String> getAvailableSlots(Long doctorId, String date);
+}
