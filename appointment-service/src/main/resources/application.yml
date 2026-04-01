@@ -6,9 +6,9 @@ spring:
     name: appointment-service
 
   datasource:
-    url: jdbc:mysql://localhost:3307/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: Himasha@2002
+    password: Indiwari@2002
 
   jpa:
     hibernate:
