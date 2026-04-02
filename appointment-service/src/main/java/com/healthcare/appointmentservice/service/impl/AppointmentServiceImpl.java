@@ -34,8 +34,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
-        SecurityUtils.requirePatient();
-        String patientEmail = SecurityUtils.requireCurrentUserEmail();
+        String patientEmail = resolvePatientEmail(request);
+        String contactEmail = normalizeContactEmail(request.getEmail(), patientEmail);
 
         validateTimeRange(request.getStartTime(), request.getEndTime());
 
@@ -51,12 +51,23 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .appointmentNumber(generateAppointmentNumber())
                 .patientId(request.getPatientId())
                 .patientEmail(patientEmail)
+                .appointmentFor(request.getAppointmentFor())
+                .appointmentType(request.getAppointmentType())
+                .patientTitle(request.getTitle())
+                .patientName(request.getName())
+                .contactNumber(request.getMobile())
+                .identificationType(request.getIdType())
+                .identificationValue(request.getIdValue())
+                .contactEmail(contactEmail)
                 .doctorId(request.getDoctorId())
                 .specialty(request.getSpecialty())
                 .appointmentDate(request.getAppointmentDate())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .reason(request.getReason())
+                .noteOrAddress(request.getNoteOrAddress())
+                .noShowRefund(Boolean.TRUE.equals(request.getNoShowRefund()))
+                .onGoingNumber(Boolean.TRUE.equals(request.getOnGoingNumber()))
                 .status(AppointmentStatus.PENDING_PAYMENT)
                 .paymentStatus("PENDING")
                 .meetingLink(null)
@@ -145,7 +156,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment updated = appointmentRepository.save(appointment);
 
         sendSimpleNotification(
-                appointment.getPatientEmail(),
+                notificationRecipient(appointment),
                 "Appointment Rescheduled",
                 "Your appointment " + updated.getAppointmentNumber() + " has been rescheduled to " +
                         updated.getAppointmentDate() + " " + updated.getStartTime()
@@ -183,7 +194,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment updated = appointmentRepository.save(appointment);
 
         sendSimpleNotification(
-                appointment.getPatientEmail(),
+                notificationRecipient(appointment),
                 "Appointment Status Updated",
                 "Appointment " + updated.getAppointmentNumber() + " status changed to " + updated.getStatus()
         );
@@ -207,7 +218,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointmentRepository.save(appointment);
 
         sendSimpleNotification(
-                appointment.getPatientEmail(),
+                notificationRecipient(appointment),
                 "Appointment Cancelled",
                 "Appointment " + appointment.getAppointmentNumber() + " has been cancelled"
         );
@@ -215,8 +226,6 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public List<String> getAvailableSlots(Long doctorId, String date) {
-        SecurityUtils.requireCurrentUserEmail();
-
         LocalDate appointmentDate = LocalDate.parse(date);
 
         List<Appointment> bookedAppointments =
@@ -298,12 +307,23 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .appointmentNumber(appointment.getAppointmentNumber())
                 .patientId(appointment.getPatientId())
                 .patientEmail(appointment.getPatientEmail())
+                .appointmentFor(appointment.getAppointmentFor())
+                .appointmentType(appointment.getAppointmentType())
+                .patientTitle(appointment.getPatientTitle())
+                .patientName(appointment.getPatientName())
+                .contactNumber(appointment.getContactNumber())
+                .identificationType(appointment.getIdentificationType())
+                .identificationValue(appointment.getIdentificationValue())
+                .contactEmail(appointment.getContactEmail())
                 .doctorId(appointment.getDoctorId())
                 .specialty(appointment.getSpecialty())
                 .appointmentDate(appointment.getAppointmentDate())
                 .startTime(appointment.getStartTime())
                 .endTime(appointment.getEndTime())
                 .reason(appointment.getReason())
+                .noteOrAddress(appointment.getNoteOrAddress())
+                .noShowRefund(appointment.getNoShowRefund())
+                .onGoingNumber(appointment.getOnGoingNumber())
                 .status(appointment.getStatus().name())
                 .paymentStatus(appointment.getPaymentStatus())
                 .meetingLink(appointment.getMeetingLink())
@@ -317,7 +337,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     private void sendAppointmentCreatedNotification(Appointment appointment) {
         NotificationRequest request = NotificationRequest.builder()
-                .recipientEmail(appointment.getPatientEmail())
+                .recipientEmail(notificationRecipient(appointment))
                 .recipientPhone(null)
                 .subject("Appointment Created")
                 .message("Your appointment " + appointment.getAppointmentNumber() +
@@ -337,5 +357,29 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
 
         notificationServiceClient.sendNotification(request);
+    }
+
+    private String normalizeContactEmail(String requestedEmail, String fallbackEmail) {
+        if (requestedEmail == null || requestedEmail.isBlank()) {
+            return fallbackEmail;
+        }
+        return requestedEmail.trim();
+    }
+
+    private String resolvePatientEmail(AppointmentCreateRequest request) {
+        if (SecurityUtils.hasRole("PATIENT")) {
+            return SecurityUtils.requireCurrentUserEmail();
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            return request.getEmail().trim();
+        }
+        return "guest-" + UUID.randomUUID().toString().substring(0, 8) + "@ayubo.local";
+    }
+
+    private String notificationRecipient(Appointment appointment) {
+        if (appointment.getContactEmail() != null && !appointment.getContactEmail().isBlank()) {
+            return appointment.getContactEmail();
+        }
+        return appointment.getPatientEmail();
     }
 }
