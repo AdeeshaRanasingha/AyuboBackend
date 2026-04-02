@@ -13,6 +13,32 @@ public class MedicalProvider extends User {
     private String medicalLicenseNumber;
     @Column(length = 1000)// Gives doctors enough space for a good bio
     private String bio;
+    // Add these right under your existing variables (specialty, bio, etc.)
+    @Column(columnDefinition = "boolean default false")
+    private Boolean isApproved = false;
+
+    private Double consultationFee = 0.0;
+
+    private String hospitalName;
+    private Integer yearsOfExperience;
+    private String qualifications;
+
+    // --- GETTERS & SETTERS ---
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
+
+    public Integer getYearsOfExperience() { return yearsOfExperience; }
+    public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
+
+    public String getQualifications() { return qualifications; }
+    public void setQualifications(String qualifications) { this.qualifications = qualifications; }
+
+    // --- Add the Getters and Setters ---
+    public Boolean getIsApproved() { return isApproved; }
+    public void setIsApproved(Boolean isApproved) { this.isApproved = isApproved; }
+
+    public Double getConsultationFee() { return consultationFee; }
+    public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
 
     public String getSpecialty() {
         return specialty;

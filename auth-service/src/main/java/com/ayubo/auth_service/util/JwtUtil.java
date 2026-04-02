@@ -3,9 +3,11 @@ package com.ayubo.auth_service.util;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 
 import io.jsonwebtoken.Claims;
@@ -14,8 +16,11 @@ import io.jsonwebtoken.JwtException;
 @Component
 public class JwtUtil {
 
-    // This creates a highly secure, mathematically random secret key
-    private final Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    private final Key key;
+
+    public JwtUtil(@Value("${jwt.secret}") String secret) {
+        this.key = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret));
+    }
     private final long EXPIRATION_TIME = 1000 * 60 * 60 * 10; // 10 Hours
 
     public String generateToken(String email, String role) {

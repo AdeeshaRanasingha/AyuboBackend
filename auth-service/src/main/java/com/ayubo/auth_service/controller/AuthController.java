@@ -1,6 +1,8 @@
 package com.ayubo.auth_service.controller;
 
 import com.ayubo.auth_service.model.*;
+import com.ayubo.auth_service.repository.MedicalProviderRepository;
+import com.ayubo.auth_service.repository.PatientRepository;
 import com.ayubo.auth_service.repository.UserRepository;
 import com.ayubo.auth_service.util.JwtUtil;
 
@@ -13,12 +15,21 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    // --- 1. ADDED MISSING REPOSITORIES ---
+    @Autowired
+    private MedicalProviderRepository providerRepository;
+
+    @Autowired
+    private PatientRepository patientRepository;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -33,42 +44,53 @@ public class AuthController {
         return ResponseEntity.ok("Auth Service is LIVE!");
     }
 
+    // --- 2. CHANGED TO <?> TO ALLOW JSON MAPS ---
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            return ResponseEntity.badRequest().body("Email already in use!");
+            return ResponseEntity.badRequest().body(Map.of("error", "Email already in use!"));
         }
 
         String encodedPassword = passwordEncoder.encode(request.getPassword());
 
-        if ("PROVIDER".equalsIgnoreCase(request.getRole())) {
+        if (request.getRole().equalsIgnoreCase("PROVIDER")) {
             MedicalProvider provider = new MedicalProvider();
             provider.setFirstName(request.getFirstName());
             provider.setLastName(request.getLastName());
             provider.setEmail(request.getEmail());
-            provider.setPhone(request.getPhone());
             provider.setPassword(encodedPassword);
-            provider.setRole("PROVIDER");
-            provider.setSpecialty(request.getSpecialty());
-            provider.setMedicalLicenseNumber(request.getMedicalLicenseNumber());
 
-            userRepository.save(provider);
+            // Replaced Role.PROVIDER with a String to avoid Enum errors
+            provider.setRole("PROVIDER");
+
+            // Map the new fields
+            provider.setPhone(request.getPhone());
+            provider.setMedicalLicenseNumber(request.getMedicalLicenseNumber());
+            provider.setSpecialty(request.getSpecialty());
+            provider.setHospitalName(request.getHospitalName());
+            provider.setYearsOfExperience(request.getYearsOfExperience());
+            provider.setQualifications(request.getQualifications());
+            provider.setConsultationFee(request.getConsultationFee());
+            provider.setBio(request.getBio());
+
+            provider.setIsApproved(false); // Force them to be approved by Admin!
+
+            providerRepository.save(provider);
+            return ResponseEntity.ok(Map.of("message", "Doctor registered successfully! Pending admin approval."));
 
         } else {
+            // --- 3. ADDED LOGIC TO ACTUALLY SAVE PATIENTS! ---
             Patient patient = new Patient();
             patient.setFirstName(request.getFirstName());
             patient.setLastName(request.getLastName());
             patient.setEmail(request.getEmail());
-            patient.setPhone(request.getPhone());
             patient.setPassword(encodedPassword);
             patient.setRole("PATIENT");
-            patient.setDateOfBirth(request.getDateOfBirth());
 
-            userRepository.save(patient);
+            patientRepository.save(patient);
+            return ResponseEntity.ok(Map.of("message", "Patient registered successfully!"));
         }
-
-        return ResponseEntity.ok("Registration Successful!");
     }
 
     @PostMapping("/login")
@@ -77,7 +99,8 @@ public class AuthController {
         var optionalUser = userRepository.findByEmail(request.getEmail());
 
         if (optionalUser.isEmpty() || !passwordEncoder.matches(request.getPassword(), optionalUser.get().getPassword())) {
-            return ResponseEntity.status(401).body("Error: Invalid email or password");
+            // Updated to return valid JSON
+            return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
         }
 
         User user = optionalUser.get();
@@ -96,25 +119,18 @@ public class AuthController {
         response.addCookie(jwtCookie);
 
         // 4. Return ONLY the role in the JSON body
-        return ResponseEntity.ok("{\"role\": \"" + user.getRole() + "\", \"message\": \"Login Successful!\"}");
+        return ResponseEntity.ok(Map.of("role", user.getRole(), "message", "Login Successful!"));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
-        // 1. Create a "blank" cookie with the exact same name
         Cookie jwtCookie = new Cookie("ayubo_jwt", null);
-
-        // 2. Set the exact same settings so it overwrites the real one
         jwtCookie.setHttpOnly(true);
         jwtCookie.setSecure(false);
         jwtCookie.setPath("/");
-
-        // 3. Set max age to 0 seconds so the browser deletes it instantly!
         jwtCookie.setMaxAge(0);
-
-        // 4. Attach the self-destructing cookie to the response
         response.addCookie(jwtCookie);
 
-        return ResponseEntity.ok("{\"message\": \"Logged out successfully!\"}");
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully!"));
     }
 }

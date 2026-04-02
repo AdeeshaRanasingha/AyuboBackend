@@ -1,6 +1,9 @@
 server:
   port: 8081
 
+jwt:
+  secret: YXl1Ym9TZWNyZXRLZXlGb3JIVE1TMjU2Qml0c01pbmltdW1SZXFTaXplMTIz
+
 spring:
   application:
     name: auth-service

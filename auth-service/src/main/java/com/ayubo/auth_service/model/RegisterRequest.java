@@ -1,87 +1,66 @@
 package com.ayubo.auth_service.model;
 
 public class RegisterRequest {
+
+    // --- BASE FIELDS ---
     private String firstName;
     private String lastName;
     private String email;
-    private String phone;
     private String password;
     private String role; // "PATIENT" or "PROVIDER"
 
-    // Specific fields
-    private String dateOfBirth; // Only sent by React if Patient
-    private String specialty;   // Only sent by React if Provider
+    // --- DOCTOR SPECIFIC FIELDS ---
+    private String phone;
     private String medicalLicenseNumber;
+    private String specialty;
+    private String hospitalName;
+    private Integer yearsOfExperience;
+    private String qualifications;
+    private Double consultationFee;
+    private String bio;
 
-    public String getFirstName() {
-        return firstName;
-    }
+    // ==========================================
+    // GETTERS AND SETTERS (DO NOT DELETE THESE!)
+    // ==========================================
 
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
+    // Base Getters/Setters
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
 
-    public String getLastName() {
-        return lastName;
-    }
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public String getEmail() {
-        return email;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
-    public String getPhone() {
-        return phone;
-    }
+    // Doctor Getters/Setters
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
+    public String getMedicalLicenseNumber() { return medicalLicenseNumber; }
+    public void setMedicalLicenseNumber(String medicalLicenseNumber) { this.medicalLicenseNumber = medicalLicenseNumber; }
 
-    public String getPassword() {
-        return password;
-    }
+    public String getSpecialty() { return specialty; }
+    public void setSpecialty(String specialty) { this.specialty = specialty; }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
 
-    public String getRole() {
-        return role;
-    }
+    public Integer getYearsOfExperience() { return yearsOfExperience; }
+    public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
 
-    public void setRole(String role) {
-        this.role = role;
-    }
+    public String getQualifications() { return qualifications; }
+    public void setQualifications(String qualifications) { this.qualifications = qualifications; }
 
-    public String getDateOfBirth() {
-        return dateOfBirth;
-    }
+    public Double getConsultationFee() { return consultationFee; }
+    public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
 
-    public void setDateOfBirth(String dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
-
-    public String getSpecialty() {
-        return specialty;
-    }
-
-    public void setSpecialty(String specialty) {
-        this.specialty = specialty;
-    }
-
-    public String getMedicalLicenseNumber() {
-        return medicalLicenseNumber;
-    }
-
-    public void setMedicalLicenseNumber(String medicalLicenseNumber) {
-        this.medicalLicenseNumber = medicalLicenseNumber;
-    }
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
 }
