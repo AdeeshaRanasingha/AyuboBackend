@@ -5,6 +5,7 @@ public class ProviderProfileRequest {
     private String lastName;
     private String phone;
     private String specialty;
+    private String hospitalName;
     private String bio;
     private String profileImage;
 
@@ -17,6 +18,8 @@ public class ProviderProfileRequest {
     public void setPhone(String phone) { this.phone = phone; }
     public String getSpecialty() { return specialty; }
     public void setSpecialty(String specialty) { this.specialty = specialty; }
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
     public String getBio() { return bio; }
     public void setBio(String bio) { this.bio = bio; }
     public String getProfileImage() { return profileImage; }

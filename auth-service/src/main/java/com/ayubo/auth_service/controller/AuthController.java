@@ -52,6 +52,7 @@ public class AuthController {
             provider.setRole("PROVIDER");
             provider.setSpecialty(request.getSpecialty());
             provider.setMedicalLicenseNumber(request.getMedicalLicenseNumber());
+            provider.setHospitalName(request.getHospitalName());
 
             userRepository.save(provider);
 

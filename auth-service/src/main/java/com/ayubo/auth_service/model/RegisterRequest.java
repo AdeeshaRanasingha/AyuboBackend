@@ -12,6 +12,7 @@ public class RegisterRequest {
     private String dateOfBirth; // Only sent by React if Patient
     private String specialty;   // Only sent by React if Provider
     private String medicalLicenseNumber;
+    private String hospitalName;
 
     public String getFirstName() {
         return firstName;
@@ -83,5 +84,13 @@ public class RegisterRequest {
 
     public void setMedicalLicenseNumber(String medicalLicenseNumber) {
         this.medicalLicenseNumber = medicalLicenseNumber;
+    }
+
+    public String getHospitalName() {
+        return hospitalName;
+    }
+
+    public void setHospitalName(String hospitalName) {
+        this.hospitalName = hospitalName;
     }
 }
