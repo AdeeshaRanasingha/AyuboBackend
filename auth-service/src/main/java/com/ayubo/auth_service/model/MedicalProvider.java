@@ -11,6 +11,7 @@ public class MedicalProvider extends User {
 
     private String specialty;
     private String medicalLicenseNumber;
+    private String hospitalName;
     @Column(length = 1000)// Gives doctors enough space for a good bio
     private String bio;
     // Add these right under your existing variables (specialty, bio, etc.)
@@ -54,6 +55,13 @@ public class MedicalProvider extends User {
 
     public void setMedicalLicenseNumber(String medicalLicenseNumber) {
         this.medicalLicenseNumber = medicalLicenseNumber;
+    }
+    public String getHospitalName() {
+        return hospitalName;
+    }
+
+    public void setHospitalName(String hospitalName) {
+        this.hospitalName = hospitalName;
     }
     // Add Getters and Setters
     public String getBio() { return bio; }

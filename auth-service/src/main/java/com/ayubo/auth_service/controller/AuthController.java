@@ -61,6 +61,12 @@ public class AuthController {
             provider.setEmail(request.getEmail());
             provider.setPassword(encodedPassword);
 
+            provider.setRole("PROVIDER");
+            provider.setSpecialty(request.getSpecialty());
+            provider.setMedicalLicenseNumber(request.getMedicalLicenseNumber());
+            provider.setHospitalName(request.getHospitalName());
+
+
             // Replaced Role.PROVIDER with a String to avoid Enum errors
             provider.setRole("PROVIDER");
 
@@ -118,8 +124,10 @@ public class AuthController {
         // 3. Attach the cookie to the HTTP response
         response.addCookie(jwtCookie);
 
-        // 4. Return ONLY the role in the JSON body
-        return ResponseEntity.ok(Map.of("role", user.getRole(), "message", "Login Successful!"));
+
+        // 4. Return the token, role, and message in the JSON body (for API clients and Postman)
+        return ResponseEntity.ok("{\"token\": \"" + token + "\", \"role\": \"" + user.getRole() + "\", \"message\": \"Login Successful!\"}");
+
     }
 
     @PostMapping("/logout")

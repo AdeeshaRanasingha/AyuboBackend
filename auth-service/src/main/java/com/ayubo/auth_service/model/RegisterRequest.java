@@ -12,12 +12,15 @@ public class RegisterRequest {
     // --- DOCTOR SPECIFIC FIELDS ---
     private String phone;
     private String medicalLicenseNumber;
+
     private String specialty;
     private String hospitalName;
     private Integer yearsOfExperience;
     private String qualifications;
     private Double consultationFee;
     private String bio;
+
+
 
     // ==========================================
     // GETTERS AND SETTERS (DO NOT DELETE THESE!)
@@ -61,6 +64,33 @@ public class RegisterRequest {
     public Double getConsultationFee() { return consultationFee; }
     public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
 
-    public String getBio() { return bio; }
-    public void setBio(String bio) { this.bio = bio; }
+
+    public void setDateOfBirth(String dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    public String getSpecialty() {
+        return specialty;
+    }
+
+    public void setSpecialty(String specialty) {
+        this.specialty = specialty;
+    }
+
+    public String getMedicalLicenseNumber() {
+        return medicalLicenseNumber;
+    }
+
+    public void setMedicalLicenseNumber(String medicalLicenseNumber) {
+        this.medicalLicenseNumber = medicalLicenseNumber;
+    }
+
+    public String getHospitalName() {
+        return hospitalName;
+    }
+
+    public void setHospitalName(String hospitalName) {
+        this.hospitalName = hospitalName;
+    }
 }
+
