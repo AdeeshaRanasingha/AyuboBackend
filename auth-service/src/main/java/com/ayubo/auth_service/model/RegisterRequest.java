@@ -9,10 +9,12 @@ public class RegisterRequest {
     private String password;
     private String role; // "PATIENT" or "PROVIDER"
 
+    // --- PATIENT SPECIFIC FIELDS ---
+    private String dateOfBirth;
+
     // --- DOCTOR SPECIFIC FIELDS ---
     private String phone;
     private String medicalLicenseNumber;
-
     private String specialty;
     private String hospitalName;
     private Integer yearsOfExperience;
@@ -21,9 +23,8 @@ public class RegisterRequest {
     private String bio;
 
 
-
     // ==========================================
-    // GETTERS AND SETTERS (DO NOT DELETE THESE!)
+    // GETTERS AND SETTERS (CLEANED & FIXED)
     // ==========================================
 
     // Base Getters/Setters
@@ -41,6 +42,10 @@ public class RegisterRequest {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    // Patient Getters/Setters
+    public String getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(String dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
     // Doctor Getters/Setters
     public String getPhone() { return phone; }
@@ -64,33 +69,6 @@ public class RegisterRequest {
     public Double getConsultationFee() { return consultationFee; }
     public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
 
-
-    public void setDateOfBirth(String dateOfBirth) {
-        this.dateOfBirth = dateOfBirth;
-    }
-
-    public String getSpecialty() {
-        return specialty;
-    }
-
-    public void setSpecialty(String specialty) {
-        this.specialty = specialty;
-    }
-
-    public String getMedicalLicenseNumber() {
-        return medicalLicenseNumber;
-    }
-
-    public void setMedicalLicenseNumber(String medicalLicenseNumber) {
-        this.medicalLicenseNumber = medicalLicenseNumber;
-    }
-
-    public String getHospitalName() {
-        return hospitalName;
-    }
-
-    public void setHospitalName(String hospitalName) {
-        this.hospitalName = hospitalName;
-    }
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
 }
-
