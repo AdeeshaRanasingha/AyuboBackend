@@ -16,8 +16,7 @@ spring:
         - id: auth-service
           uri: http://localhost:8081
           predicates:
-
-            - Path=/api/auth/**, /api/provider/**, /api/patient/**, /api/admin/**
+            - Path=/api/auth/**, /api/provider/**, /api/patient/**, /api/admin/**, /api/schedule/**
         
         - id: appointment-service
           uri: http://localhost:8082
