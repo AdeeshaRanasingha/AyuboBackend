@@ -131,6 +131,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         validateTimeRange(newStartTime, newEndTime);
 
+        boolean scheduleChanged = !newDate.equals(appointment.getAppointmentDate())
+                || !newStartTime.equals(appointment.getStartTime())
+                || !newEndTime.equals(appointment.getEndTime());
+
         appointmentRepository.findByDoctorIdAndAppointmentDateAndStartTime(
                 appointment.getDoctorId(),
                 newDate,
@@ -145,22 +149,78 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStartTime(newStartTime);
         appointment.setEndTime(newEndTime);
 
+        if (request.getAppointmentFor() != null) {
+            appointment.setAppointmentFor(request.getAppointmentFor());
+        }
+
+        if (request.getAppointmentType() != null) {
+            appointment.setAppointmentType(request.getAppointmentType());
+        }
+
+        if (request.getTitle() != null) {
+            appointment.setPatientTitle(request.getTitle());
+        }
+
+        if (request.getName() != null) {
+            appointment.setPatientName(request.getName());
+        }
+
+        if (request.getMobile() != null) {
+            appointment.setContactNumber(request.getMobile());
+        }
+
+        if (request.getIdType() != null) {
+            appointment.setIdentificationType(request.getIdType());
+        }
+
+        if (request.getIdValue() != null) {
+            appointment.setIdentificationValue(request.getIdValue());
+        }
+
+        if (request.getEmail() != null) {
+            appointment.setContactEmail(normalizeContactEmail(request.getEmail(), appointment.getPatientEmail()));
+        }
+
         if (request.getReason() != null) {
             appointment.setReason(request.getReason());
         }
 
-        appointment.setStatus(AppointmentStatus.RESCHEDULED);
-        appointment.setRescheduleCount(appointment.getRescheduleCount() + 1);
-        appointment.setNotes("Appointment rescheduled");
+        if (request.getNoteOrAddress() != null) {
+            appointment.setNoteOrAddress(request.getNoteOrAddress());
+        }
+
+        if (request.getNoShowRefund() != null) {
+            appointment.setNoShowRefund(request.getNoShowRefund());
+        }
+
+        if (request.getOnGoingNumber() != null) {
+            appointment.setOnGoingNumber(request.getOnGoingNumber());
+        }
+
+        if (scheduleChanged) {
+            appointment.setStatus(AppointmentStatus.RESCHEDULED);
+            appointment.setRescheduleCount(appointment.getRescheduleCount() + 1);
+            appointment.setNotes("Appointment rescheduled");
+        } else {
+            appointment.setNotes("Appointment details updated");
+        }
 
         Appointment updated = appointmentRepository.save(appointment);
 
-        sendSimpleNotification(
-                notificationRecipient(appointment),
-                "Appointment Rescheduled",
-                "Your appointment " + updated.getAppointmentNumber() + " has been rescheduled to " +
-                        updated.getAppointmentDate() + " " + updated.getStartTime()
-        );
+        if (scheduleChanged) {
+            sendSimpleNotification(
+                    notificationRecipient(appointment),
+                    "Appointment Rescheduled",
+                    "Your appointment " + updated.getAppointmentNumber() + " has been rescheduled to " +
+                            updated.getAppointmentDate() + " " + updated.getStartTime()
+            );
+        } else {
+            sendSimpleNotification(
+                    notificationRecipient(appointment),
+                    "Appointment Updated",
+                    "Your appointment " + updated.getAppointmentNumber() + " details have been updated"
+            );
+        }
 
         return mapToResponse(updated);
     }
