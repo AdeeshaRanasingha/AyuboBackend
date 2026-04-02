@@ -8,7 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,13 +36,15 @@ public class ProfileController {
         if (optionalProvider.isPresent()) {
             MedicalProvider provider = optionalProvider.get();
 
-            Map<String, String> profileData = new HashMap<>();
+            Map<String, Object> profileData = new HashMap<>();
+            profileData.put("id", provider.getId());
             profileData.put("firstName", provider.getFirstName());
             profileData.put("lastName", provider.getLastName());
             profileData.put("email", provider.getEmail());
             profileData.put("phone", provider.getPhone());
             profileData.put("specialty", provider.getSpecialty());
             profileData.put("medicalLicenseNumber", provider.getMedicalLicenseNumber());
+            profileData.put("hospitalName", provider.getHospitalName());
             profileData.put("bio", provider.getBio());
             profileData.put("profileImage", provider.getProfileImage());
 
@@ -62,7 +67,8 @@ public class ProfileController {
             Patient patient = optionalPatient.get();
 
             // Build a secure JSON object without the password
-            Map<String, String> profileData = new HashMap<>();
+            Map<String, Object> profileData = new HashMap<>();
+            profileData.put("id", patient.getId());
             profileData.put("firstName", patient.getFirstName());
             profileData.put("lastName", patient.getLastName());
             profileData.put("email", patient.getEmail());
@@ -90,6 +96,7 @@ public class ProfileController {
             provider.setLastName(request.getLastName());
             provider.setPhone(request.getPhone());
             provider.setSpecialty(request.getSpecialty());
+            provider.setHospitalName(request.getHospitalName());
             provider.setBio(request.getBio());
 
             if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
@@ -101,6 +108,27 @@ public class ProfileController {
         }
 
         return ResponseEntity.status(403).body("{\"error\": \"Database Error: Could not save data to the Doctor directory.\"}");
+    }
+
+    @GetMapping("/provider/directory")
+    public ResponseEntity<?> getProviderDirectory() {
+        List<Map<String, Object>> directory = new ArrayList<>();
+
+        for (MedicalProvider provider : providerRepository.findAll()) {
+            Map<String, Object> doctor = new LinkedHashMap<>();
+            doctor.put("id", provider.getId());
+            doctor.put("firstName", provider.getFirstName());
+            doctor.put("lastName", provider.getLastName());
+            doctor.put("email", provider.getEmail());
+            doctor.put("phone", provider.getPhone());
+            doctor.put("specialty", provider.getSpecialty());
+            doctor.put("hospitalName", provider.getHospitalName());
+            doctor.put("bio", provider.getBio());
+            doctor.put("profileImage", provider.getProfileImage());
+            directory.add(doctor);
+        }
+
+        return ResponseEntity.ok(directory);
     }
 
     // --- UPDATE PATIENT PROFILE ---

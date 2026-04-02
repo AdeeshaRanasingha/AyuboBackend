@@ -52,6 +52,7 @@ public class AuthController {
             provider.setRole("PROVIDER");
             provider.setSpecialty(request.getSpecialty());
             provider.setMedicalLicenseNumber(request.getMedicalLicenseNumber());
+            provider.setHospitalName(request.getHospitalName());
 
             userRepository.save(provider);
 
@@ -95,8 +96,8 @@ public class AuthController {
         // 3. Attach the cookie to the HTTP response
         response.addCookie(jwtCookie);
 
-        // 4. Return ONLY the role in the JSON body
-        return ResponseEntity.ok("{\"role\": \"" + user.getRole() + "\", \"message\": \"Login Successful!\"}");
+        // 4. Return the token, role, and message in the JSON body (for API clients and Postman)
+        return ResponseEntity.ok("{\"token\": \"" + token + "\", \"role\": \"" + user.getRole() + "\", \"message\": \"Login Successful!\"}");
     }
 
     @PostMapping("/logout")
