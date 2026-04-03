@@ -1,4 +1,3 @@
-```yaml
 server:
   port: 8081
 
@@ -16,4 +15,3 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-```
