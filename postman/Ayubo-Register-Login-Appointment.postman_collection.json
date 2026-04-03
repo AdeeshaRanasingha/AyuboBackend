@@ -1,0 +1,110 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Ayubo — Register, Login, Create Appointment",
+    "description": "Run requests **1 → 2 → 3** in order.\n\n- **1** registers a patient on auth-service (:8081).\n- **2** logs in; a **Tests** script saves the JWT into `jwt_token`.\n- **3** creates an appointment on appointment-service (:8082) using Bearer `jwt_token`.\n\nIf **1** fails with \"Email already in use\", change `patient_email` in the collection variables and run again.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "auth_url", "value": "http://localhost:8081" },
+    { "key": "appointment_url", "value": "http://localhost:8082" },
+    { "key": "patient_email", "value": "demo.patient.unique@mail.com" },
+    { "key": "patient_password", "value": "Test123456" },
+    { "key": "jwt_token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1 — Register (PATIENT)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Demo\",\n  \"lastName\": \"Patient\",\n  \"email\": \"{{patient_email}}\",\n  \"phone\": \"0770000001\",\n  \"password\": \"{{patient_password}}\",\n  \"role\": \"PATIENT\",\n  \"dateOfBirth\": \"1995-06-15\"\n}"
+        },
+        "url": "{{auth_url}}/api/auth/register",
+        "description": "Creates a patient account. Role must be PATIENT to create appointments later."
+      },
+      "response": []
+    },
+    {
+      "name": "2 — Login (saves JWT)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let token = '';",
+              "pm.response.headers.all().forEach(function (h) {",
+              "  if (h.key.toLowerCase() === 'set-cookie' && h.value.indexOf('ayubo_jwt') !== -1) {",
+              "    const m = h.value.match(/ayubo_jwt=([^;]+)/);",
+              "    if (m) token = decodeURIComponent(m[1].trim());",
+              "  }",
+              "});",
+              "if (token) {",
+              "  pm.collectionVariables.set('jwt_token', token);",
+              "  pm.test('JWT saved for step 3', function () { pm.expect(token.length).to.be.above(20); });",
+              "} else {",
+              "  pm.test('Login returned ayubo_jwt cookie', function () { pm.expect.fail('No ayubo_jwt in Set-Cookie — check auth-service on ' + pm.collectionVariables.get('auth_url')); });",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{patient_email}}\",\n  \"password\": \"{{patient_password}}\"\n}"
+        },
+        "url": "{{auth_url}}/api/auth/login",
+        "description": "After Send, open **Test Results** — should pass if cookie was captured. Variable `jwt_token` is set for request 3."
+      },
+      "response": []
+    },
+    {
+      "name": "3 — Create appointment",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctorId\": 1,\n  \"appointmentDate\": \"2026-12-20\",\n  \"startTime\": \"10:00:00\",\n  \"endTime\": \"10:30:00\",\n  \"reason\": \"Postman flow test\"\n}"
+        },
+        "url": "{{appointment_url}}/api/appointments",
+        "description": "Uses the same JWT as login (patient email in token = owner). Change `doctorId` / date if needed. Slot must be free."
+      },
+      "response": []
+    },
+    {
+      "name": "4 — (Optional) My appointments",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{jwt_token}}", "type": "string" }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": "{{appointment_url}}/api/appointments/my",
+        "description": "Lists appointments for the logged-in patient."
+      },
+      "response": []
+    }
+  ]
+}

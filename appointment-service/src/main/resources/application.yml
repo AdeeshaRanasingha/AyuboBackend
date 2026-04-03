@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+# Must match the signing secret used by auth-service for JWT validation to succeed.
+# Auth currently uses a random key per process unless you align it externally.
+jwt:
+  secret: "0123456789abcdef0123456789abcdef0123456789abcdef01"
+
+# Map each provider's login email to their doctorId in this service (no auth-service changes required).
+appointment:
+  # Local Postman: set true to POST /api/dev/issue-token (no auth). Set false for production.
+  dev:
+    allow-token-endpoint: true
+  security:
+    provider-doctor-id-by-email: {}
+
+spring:
+  application:
+    name: appointment-service
+
+  sql:
+    init:
+      mode: never
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: Indiwari@2002
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+services:
+  notification:
+    base-url: http://localhost:8085
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
