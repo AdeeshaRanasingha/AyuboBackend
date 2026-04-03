@@ -26,33 +26,43 @@ public class ProfileController {
     private MedicalProviderRepository providerRepository;
 
     // --- FETCH DOCTOR PROFILE ---
+    // --- FETCH DOCTOR PROFILE ---
+    // --- FETCH DOCTOR PROFILE ---
     @GetMapping("/provider/profile")
     public ResponseEntity<?> getProviderProfile(Authentication authentication) {
         String email = authentication.getName();
-
-        // Ask the specific Provider table, not the generic User table!
         Optional<MedicalProvider> optionalProvider = providerRepository.findByEmail(email);
 
         if (optionalProvider.isPresent()) {
             MedicalProvider provider = optionalProvider.get();
 
-            Map<String, Object> profileData = new HashMap<>();
-            profileData.put("id", provider.getId());
+            Map<String, String> profileData = new HashMap<>();
             profileData.put("firstName", provider.getFirstName());
             profileData.put("lastName", provider.getLastName());
             profileData.put("email", provider.getEmail());
             profileData.put("phone", provider.getPhone());
             profileData.put("specialty", provider.getSpecialty());
             profileData.put("medicalLicenseNumber", provider.getMedicalLicenseNumber());
-            profileData.put("hospitalName", provider.getHospitalName());
             profileData.put("bio", provider.getBio());
-            profileData.put("profileImage", provider.getProfileImage());
+
+            profileData.put("hospitalName", provider.getHospitalName());
+            profileData.put("qualifications", provider.getQualifications());
+            profileData.put("yearsOfExperience", provider.getYearsOfExperience() != null ? String.valueOf(provider.getYearsOfExperience()) : "0");
+            profileData.put("consultationFee", provider.getConsultationFee() != null ? String.valueOf(provider.getConsultationFee()) : "0.0");
+            profileData.put("isApproved", String.valueOf(provider.getIsApproved()));
+
+            // =========================================================
+            // THIS IS THE MISSING MAGIC LINE!
+            // It tells Spring Boot to actually send the image to React
+            // =========================================================
+            if (provider.getProfileImage() != null) {
+                profileData.put("profileImage", provider.getProfileImage());
+            }
 
             return ResponseEntity.ok(profileData);
         }
 
-        // Upgraded error message so we know exactly what went wrong
-        return ResponseEntity.status(403).body("{\"error\": \"Database Error: Could not find you in the Doctor directory.\"}");
+        return ResponseEntity.status(403).body(Map.of("error", "Could not find profile."));
     }
 
     // --- FETCH PATIENT PROFILE ---
@@ -92,22 +102,28 @@ public class ProfileController {
         if (optionalProvider.isPresent()) {
             MedicalProvider provider = optionalProvider.get();
 
-            provider.setFirstName(request.getFirstName());
-            provider.setLastName(request.getLastName());
-            provider.setPhone(request.getPhone());
-            provider.setSpecialty(request.getSpecialty());
-            provider.setHospitalName(request.getHospitalName());
-            provider.setBio(request.getBio());
+            // Safely update fields if they are provided
+            if (request.getFirstName() != null) provider.setFirstName(request.getFirstName());
+            if (request.getLastName() != null) provider.setLastName(request.getLastName());
+            if (request.getPhone() != null) provider.setPhone(request.getPhone());
+            if (request.getSpecialty() != null) provider.setSpecialty(request.getSpecialty());
+            if (request.getHospitalName() != null) provider.setHospitalName(request.getHospitalName());
+            if (request.getBio() != null) provider.setBio(request.getBio());
+            if (request.getQualifications() != null) provider.setQualifications(request.getQualifications());
+            if (request.getYearsOfExperience() != null) provider.setYearsOfExperience(request.getYearsOfExperience());
 
+            // Image handling
             if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
                 provider.setProfileImage(request.getProfileImage());
             }
 
             providerRepository.save(provider);
-            return ResponseEntity.ok("{\"message\": \"Professional profile updated successfully!\"}");
+
+            // Return valid JSON
+            return ResponseEntity.ok(Map.of("message", "Professional profile updated successfully!"));
         }
 
-        return ResponseEntity.status(403).body("{\"error\": \"Database Error: Could not save data to the Doctor directory.\"}");
+        return ResponseEntity.status(403).body(Map.of("error", "Database Error: Could not save data."));
     }
 
     @GetMapping("/provider/directory")
