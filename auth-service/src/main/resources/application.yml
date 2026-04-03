@@ -1,11 +1,15 @@
 server:
   port: 8081
 
+# Must be identical to appointment-service jwt.secret so login cookies work there.
+jwt:
+  secret: "0123456789abcdef0123456789abcdef0123456789abcdef01"
+
 spring:
   application:
     name: auth-service
   datasource:
-    url: jdbc:mysql://localhost:3306/ayubo_auth_db?createDatabaseIfNotExist=true
+    url: jdbc:mysql://localhost:3306/ayubo_auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: 1234
   jpa:
