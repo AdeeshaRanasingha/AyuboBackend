@@ -12,7 +12,7 @@ import java.time.LocalTime;
 
 @Entity
 @Table(
-        name = "appointments",
+        name = "appoinment",
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uk_doctor_date_starttime",
@@ -42,6 +42,30 @@ public class Appointment {
     @Column(name = "patient_email", nullable = false, length = 255)
     private String patientEmail;
 
+    @Column(name = "appointment_for", length = 50)
+    private String appointmentFor;
+
+    @Column(name = "appointment_type", length = 50)
+    private String appointmentType;
+
+    @Column(name = "patient_title", length = 20)
+    private String patientTitle;
+
+    @Column(name = "patient_name", length = 150)
+    private String patientName;
+
+    @Column(name = "contact_number", length = 30)
+    private String contactNumber;
+
+    @Column(name = "identification_type", length = 30)
+    private String identificationType;
+
+    @Column(name = "identification_value", length = 100)
+    private String identificationValue;
+
+    @Column(name = "contact_email", length = 255)
+    private String contactEmail;
+
     @Column(name = "doctor_id", nullable = false)
     private Long doctorId;
 
@@ -59,6 +83,15 @@ public class Appointment {
 
     @Column(name = "reason", length = 255)
     private String reason;
+
+    @Column(name = "note_or_address", length = 255)
+    private String noteOrAddress;
+
+    @Column(name = "no_show_refund")
+    private Boolean noShowRefund;
+
+    @Column(name = "on_going_number")
+    private Boolean onGoingNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
@@ -92,6 +125,12 @@ public class Appointment {
         this.updatedAt = now;
         if (this.rescheduleCount == null) {
             this.rescheduleCount = 0;
+        }
+        if (this.noShowRefund == null) {
+            this.noShowRefund = false;
+        }
+        if (this.onGoingNumber == null) {
+            this.onGoingNumber = false;
         }
     }
 
