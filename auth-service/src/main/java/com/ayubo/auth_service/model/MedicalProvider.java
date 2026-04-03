@@ -6,39 +6,49 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "medical_providers")
-
 public class MedicalProvider extends User {
 
+    // --- DOCTOR SPECIFIC FIELDS ---
     private String specialty;
     private String medicalLicenseNumber;
     private String hospitalName;
-    @Column(length = 1000)// Gives doctors enough space for a good bio
+    private Integer yearsOfExperience;
+    private String qualifications;
+
+    @Column(length = 1000) // Gives doctors enough space for a good bio
     private String bio;
 
-    public String getSpecialty() {
-        return specialty;
-    }
+    @Column(columnDefinition = "boolean default false")
+    private Boolean isApproved = false;
 
-    public void setSpecialty(String specialty) {
-        this.specialty = specialty;
-    }
+    private Double consultationFee = 0.0;
 
-    public String getMedicalLicenseNumber() {
-        return medicalLicenseNumber;
-    }
 
-    public void setMedicalLicenseNumber(String medicalLicenseNumber) {
-        this.medicalLicenseNumber = medicalLicenseNumber;
-    }
-    public String getHospitalName() {
-        return hospitalName;
-    }
+    // ==========================================
+    // GETTERS AND SETTERS (CLEANED & FIXED)
+    // ==========================================
 
-    public void setHospitalName(String hospitalName) {
-        this.hospitalName = hospitalName;
-    }
-    // Add Getters and Setters
+    public String getSpecialty() { return specialty; }
+    public void setSpecialty(String specialty) { this.specialty = specialty; }
+
+    public String getMedicalLicenseNumber() { return medicalLicenseNumber; }
+    public void setMedicalLicenseNumber(String medicalLicenseNumber) { this.medicalLicenseNumber = medicalLicenseNumber; }
+
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
+
+    public Integer getYearsOfExperience() { return yearsOfExperience; }
+    public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
+
+    public String getQualifications() { return qualifications; }
+    public void setQualifications(String qualifications) { this.qualifications = qualifications; }
+
     public String getBio() { return bio; }
     public void setBio(String bio) { this.bio = bio; }
 
+    public Boolean getIsApproved() { return isApproved; }
+    public void setIsApproved(Boolean isApproved) { this.isApproved = isApproved; }
+
+    public Double getConsultationFee() { return consultationFee; }
+    public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
 }
