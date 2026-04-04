@@ -20,6 +20,10 @@ public class ProviderSchedule {
     private String startTime; // Format: HH:MM
     private String endTime; // Format: HH:MM
     private Integer maxPatients;
+    private String hospitalName;
+
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
 
     // ==========================================
     // GETTERS AND SETTERS
