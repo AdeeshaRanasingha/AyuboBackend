@@ -41,22 +41,31 @@ public class ScheduleController {
     @PostMapping
     public ResponseEntity<?> addScheduleSlot(@RequestBody ScheduleRequest request, Authentication authentication) {
         String email = authentication.getName();
-        Optional<MedicalProvider> provider = providerRepository.findByEmail(email);
+        Optional<MedicalProvider> providerOpt = providerRepository.findByEmail(email);
 
-        if (provider.isPresent()) {
+        if (providerOpt.isPresent()) {
+            MedicalProvider provider = providerOpt.get();
+
+            // =========================================================
+            // SECURITY CHECK: ONLY APPROVED DOCTORS CAN ADD SLOTS
+            // =========================================================
+            if (provider.getIsApproved() == null || !provider.getIsApproved()) {
+                return ResponseEntity.status(403).body("Your account is pending Admin approval. You cannot add schedule slots yet.");
+            }
+
             ProviderSchedule newSlot = new ProviderSchedule();
-            newSlot.setProvider(provider.get());
+            newSlot.setProvider(provider);
             newSlot.setDate(request.getDate());
             newSlot.setStartTime(request.getStartTime());
             newSlot.setEndTime(request.getEndTime());
             newSlot.setMaxPatients(request.getMaxPatients());
+            newSlot.setHospitalName(request.getHospitalName());
 
             scheduleRepository.save(newSlot);
 
-            // We return the saved slot so React immediately knows its official Database ID!
             return ResponseEntity.ok(newSlot);
         }
-        return ResponseEntity.status(403).body(Map.of("error", "Provider not found"));
+        return ResponseEntity.status(403).body("Provider not found");
     }
 
     // 3. DELETE A SLOT
@@ -67,5 +76,43 @@ public class ScheduleController {
             return ResponseEntity.ok(Map.of("message", "Time slot deleted."));
         }
         return ResponseEntity.notFound().build();
+    }
+
+    // 4. UPDATE/EDIT A SLOT
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateScheduleSlot(
+            @PathVariable Long id,
+            @RequestBody ScheduleRequest request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        Optional<MedicalProvider> provider = providerRepository.findByEmail(email);
+
+        if (provider.isPresent()) {
+            Optional<ProviderSchedule> optionalSlot = scheduleRepository.findById(id);
+
+            if (optionalSlot.isPresent()) {
+                ProviderSchedule existingSlot = optionalSlot.get();
+
+                // Security check: Ensure the doctor actually owns this slot before updating
+                if (!existingSlot.getProvider().getId().equals(provider.get().getId())) {
+                    return ResponseEntity.status(403).body(Map.of("error", "Unauthorized to edit this slot."));
+                }
+
+                // Update the fields
+                existingSlot.setDate(request.getDate());
+                existingSlot.setStartTime(request.getStartTime());
+                existingSlot.setEndTime(request.getEndTime());
+                existingSlot.setMaxPatients(request.getMaxPatients());
+                existingSlot.setHospitalName(request.getHospitalName());
+
+                scheduleRepository.save(existingSlot);
+
+                // Return the updated slot back to React
+                return ResponseEntity.ok(existingSlot);
+            }
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.status(403).body(Map.of("error", "Provider not found"));
     }
 }
