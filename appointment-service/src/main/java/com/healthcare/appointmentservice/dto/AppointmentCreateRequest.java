@@ -11,11 +11,34 @@ import java.time.LocalTime;
 @Data
 public class AppointmentCreateRequest {
 
-    @NotNull(message = "patientId is required")
     private Long patientId;
 
     @NotNull(message = "doctorId is required")
     private Long doctorId;
+
+    @Size(max = 50, message = "appointmentFor must not exceed 50 characters")
+    private String appointmentFor;
+
+    @Size(max = 50, message = "appointmentType must not exceed 50 characters")
+    private String appointmentType;
+
+    @Size(max = 20, message = "title must not exceed 20 characters")
+    private String title;
+
+    @Size(max = 150, message = "name must not exceed 150 characters")
+    private String name;
+
+    @Size(max = 30, message = "mobile must not exceed 30 characters")
+    private String mobile;
+
+    @Size(max = 30, message = "idType must not exceed 30 characters")
+    private String idType;
+
+    @Size(max = 100, message = "idValue must not exceed 100 characters")
+    private String idValue;
+
+    @Size(max = 255, message = "email must not exceed 255 characters")
+    private String email;
 
     @Size(max = 100, message = "specialty must not exceed 100 characters")
     private String specialty;
@@ -32,4 +55,11 @@ public class AppointmentCreateRequest {
 
     @Size(max = 255, message = "reason must not exceed 255 characters")
     private String reason;
+
+    @Size(max = 255, message = "noteOrAddress must not exceed 255 characters")
+    private String noteOrAddress;
+
+    private Boolean noShowRefund;
+
+    private Boolean onGoingNumber;
 }

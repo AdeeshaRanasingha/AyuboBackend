@@ -1,5 +1,5 @@
 -- Optional demo data: set spring.sql.init.mode=always and spring.jpa.defer-datasource-initialization=true if you want this to run after Hibernate creates tables.
--- INSERT INTO appointments
+-- INSERT INTO appoinment
 -- (appointment_number, patient_id, patient_email, doctor_id, specialty, appointment_date, start_time, end_time, reason, status, payment_status, meeting_link, notes, cancel_reason, reschedule_count, created_at, updated_at)
 -- VALUES
 --     ('APT-DEMO0001', 101, 'patient101@demo.local', 501, 'Cardiology', '2026-04-10', '10:00:00', '10:30:00', 'Heart checkup', 'CONFIRMED', 'PAID', NULL, 'Demo appointment', NULL, 0, NOW(), NOW());

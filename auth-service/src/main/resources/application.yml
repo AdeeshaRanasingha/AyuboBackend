@@ -1,7 +1,6 @@
 server:
   port: 8081
 
-# Must be identical to appointment-service jwt.secret so login cookies work there.
 jwt:
   secret: "0123456789abcdef0123456789abcdef0123456789abcdef01"
 
