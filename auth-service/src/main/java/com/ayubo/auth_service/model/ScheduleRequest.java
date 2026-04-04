@@ -5,6 +5,10 @@ public class ScheduleRequest {
     private String startTime;
     private String endTime;
     private Integer maxPatients;
+    private String hospitalName;
+
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
 
     public String getDate() { return date; }
     public void setDate(String date) { this.date = date; }
