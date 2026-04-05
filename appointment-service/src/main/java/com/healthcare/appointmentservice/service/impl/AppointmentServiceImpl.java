@@ -1,6 +1,8 @@
 package com.healthcare.appointmentservice.service.impl;
 
+import com.healthcare.appointmentservice.client.DoctorScheduleSlotClient;
 import com.healthcare.appointmentservice.client.NotificationServiceClient;
+import com.healthcare.appointmentservice.client.dto.AuthScheduleSlotRow;
 import com.healthcare.appointmentservice.config.AppointmentSecurityProperties;
 import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
@@ -20,9 +22,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +35,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final NotificationServiceClient notificationServiceClient;
     private final AppointmentSecurityProperties appointmentSecurityProperties;
+    private final DoctorScheduleSlotClient doctorScheduleSlotClient;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
@@ -288,26 +293,40 @@ public class AppointmentServiceImpl implements AppointmentService {
     public List<String> getAvailableSlots(Long doctorId, String date) {
         LocalDate appointmentDate = LocalDate.parse(date);
 
+        List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, date);
+        Map<String, Integer> capacityByStart = new LinkedHashMap<>();
+        for (AuthScheduleSlotRow row : scheduledRows) {
+            if (row.startTime() == null || row.startTime().isBlank()) {
+                continue;
+            }
+            String slotKey = normalizeSlotTimeKey(row.startTime());
+            int cap = row.maxPatients() != null && row.maxPatients() > 0 ? row.maxPatients() : 1;
+            capacityByStart.merge(slotKey, cap, Integer::max);
+        }
+
+        if (capacityByStart.isEmpty()) {
+            return List.of();
+        }
+
         List<Appointment> bookedAppointments =
                 appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, appointmentDate);
 
-        List<String> allSlots = new ArrayList<>();
-        allSlots.add("09:00");
-        allSlots.add("10:00");
-        allSlots.add("11:00");
-        allSlots.add("12:00");
-        allSlots.add("14:00");
-        allSlots.add("15:00");
-        allSlots.add("16:00");
-
-        List<String> bookedSlots = bookedAppointments.stream()
+        Map<String, Long> bookedCountBySlot = bookedAppointments.stream()
                 .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED && a.getStatus() != AppointmentStatus.REJECTED)
-                .map(a -> a.getStartTime().toString().substring(0, 5))
-                .toList();
+                .collect(Collectors.groupingBy(
+                        a -> a.getStartTime().toString().substring(0, 5),
+                        Collectors.counting()
+                ));
 
-        return allSlots.stream()
-                .filter(slot -> !bookedSlots.contains(slot))
+        return capacityByStart.entrySet().stream()
+                .filter(e -> bookedCountBySlot.getOrDefault(e.getKey(), 0L) < e.getValue())
+                .map(Map.Entry::getKey)
                 .toList();
+    }
+
+    private static String normalizeSlotTimeKey(String raw) {
+        String s = raw.trim();
+        return s.length() >= 5 ? s.substring(0, 5) : s;
     }
 
     private void assertCanAccessAppointment(Appointment appointment) {
