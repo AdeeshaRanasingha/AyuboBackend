@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -290,10 +291,69 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
-    public List<String> getAvailableSlots(Long doctorId, String date) {
-        LocalDate appointmentDate = LocalDate.parse(date);
+    public List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
+        LocalDate anchor = LocalDate.parse(date);
+        if (!forCurrentMonth) {
+            List<Appointment> bookedAppointments =
+                    appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, anchor);
+            return buildAvailableSlotTimesForDay(doctorId, anchor, bookedAppointments);
+        }
 
-        List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, date);
+        LocalDate monthStart = anchor.withDayOfMonth(1);
+        LocalDate monthEnd = anchor.withDayOfMonth(anchor.lengthOfMonth());
+        List<Appointment> monthBookings = appointmentRepository.findByDoctorIdAndAppointmentDateBetween(
+                doctorId,
+                monthStart,
+                monthEnd
+        );
+
+        Map<LocalDate, Map<String, Long>> bookedByDay = monthBookings.stream()
+                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED
+                        && a.getStatus() != AppointmentStatus.REJECTED)
+                .collect(Collectors.groupingBy(
+                        Appointment::getAppointmentDate,
+                        Collectors.groupingBy(
+                                a -> a.getStartTime().toString().substring(0, 5),
+                                Collectors.counting()
+                        )
+                ));
+
+        List<String> combined = new ArrayList<>();
+        for (LocalDate d = monthStart; !d.isAfter(monthEnd); d = d.plusDays(1)) {
+            Map<String, Long> bookedForDay = bookedByDay.getOrDefault(d, Map.of());
+            for (String time : buildAvailableSlotTimesForDay(doctorId, d, bookedForDay)) {
+                combined.add(d + " " + time);
+            }
+        }
+        combined.sort(String::compareTo);
+        return combined;
+    }
+
+    /**
+     * Returns start times (HH:mm) still open for booking on {@code day}, using auth schedule capacity
+     * minus non-cancelled appointments for that day.
+     */
+    private List<String> buildAvailableSlotTimesForDay(
+            long doctorId,
+            LocalDate day,
+            List<Appointment> bookedAppointmentsForDay
+    ) {
+        Map<String, Long> bookedCountBySlot = bookedAppointmentsForDay.stream()
+                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED
+                        && a.getStatus() != AppointmentStatus.REJECTED)
+                .collect(Collectors.groupingBy(
+                        a -> a.getStartTime().toString().substring(0, 5),
+                        Collectors.counting()
+                ));
+        return buildAvailableSlotTimesForDay(doctorId, day, bookedCountBySlot);
+    }
+
+    private List<String> buildAvailableSlotTimesForDay(
+            long doctorId,
+            LocalDate day,
+            Map<String, Long> bookedCountBySlot
+    ) {
+        List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, day.toString());
         Map<String, Integer> capacityByStart = new LinkedHashMap<>();
         for (AuthScheduleSlotRow row : scheduledRows) {
             if (row.startTime() == null || row.startTime().isBlank()) {
@@ -308,19 +368,10 @@ public class AppointmentServiceImpl implements AppointmentService {
             return List.of();
         }
 
-        List<Appointment> bookedAppointments =
-                appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, appointmentDate);
-
-        Map<String, Long> bookedCountBySlot = bookedAppointments.stream()
-                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED && a.getStatus() != AppointmentStatus.REJECTED)
-                .collect(Collectors.groupingBy(
-                        a -> a.getStartTime().toString().substring(0, 5),
-                        Collectors.counting()
-                ));
-
         return capacityByStart.entrySet().stream()
                 .filter(e -> bookedCountBySlot.getOrDefault(e.getKey(), 0L) < e.getValue())
                 .map(Map.Entry::getKey)
+                .sorted()
                 .toList();
     }
 
