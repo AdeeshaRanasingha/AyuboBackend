@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -100,8 +101,9 @@ public class Appointment {
     @Column(name = "payment_status", length = 50)
     private String paymentStatus;
 
-    @Column(name = "meeting_link", length = 255)
-    private String meetingLink;
+    /** Total payable amount for this booking (e.g. consultation + add-ons), LKR. */
+    @Column(name = "total_price", precision = 12, scale = 2)
+    private BigDecimal totalPrice;
 
     @Column(name = "notes", length = 255)
     private String notes;

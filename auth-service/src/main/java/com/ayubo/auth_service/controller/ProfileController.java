@@ -37,6 +37,7 @@ public class ProfileController {
             MedicalProvider provider = optionalProvider.get();
 
             Map<String, String> profileData = new HashMap<>();
+            profileData.put("id", String.valueOf(provider.getId()));
             profileData.put("firstName", provider.getFirstName());
             profileData.put("lastName", provider.getLastName());
             profileData.put("email", provider.getEmail());
