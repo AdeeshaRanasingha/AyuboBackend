@@ -41,7 +41,7 @@ services:
   auth:
     base-url: http://localhost:8081
   notification:
-    base-url: http://localhost:8085
+    base-url: http://localhost:8086
 
 springdoc:
   api-docs:
