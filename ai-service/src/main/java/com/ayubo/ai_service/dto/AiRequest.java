@@ -1,7 +1,8 @@
-package com.ayubo.ai_service.dto; // Change package to match your project
+package com.ayubo.ai_service.dto;
 
 public class AiRequest {
     private String message;
+    private String patientId; // Added this!
 
     // Getters and Setters
     public String getMessage() {
@@ -10,5 +11,13 @@ public class AiRequest {
 
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public String getPatientId() {
+        return patientId;
+    }
+
+    public void setPatientId(String patientId) {
+        this.patientId = patientId;
     }
 }
