@@ -38,6 +38,8 @@ spring:
         format_sql: true
 
 services:
+  auth:
+    base-url: http://localhost:8085
   notification:
     base-url: http://localhost:8085
 

@@ -15,6 +15,7 @@ import com.healthcare.appointmentservice.exception.ResourceNotFoundException;
 import com.healthcare.appointmentservice.repository.AppointmentRepository;
 import com.healthcare.appointmentservice.security.SecurityUtils;
 import com.healthcare.appointmentservice.service.AppointmentService;
+import com.healthcare.appointmentservice.service.ProviderDoctorResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final NotificationServiceClient notificationServiceClient;
     private final AppointmentSecurityProperties appointmentSecurityProperties;
+    private final ProviderDoctorResolver providerDoctorResolver;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
@@ -103,7 +105,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     public List<AppointmentResponse> getAppointmentsByDoctor(Long doctorId) {
         SecurityUtils.requireProvider();
-        Long mappedDoctorId = appointmentSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
+        Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
                 .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
         if (!mappedDoctorId.equals(doctorId)) {
             throw new ForbiddenException("You cannot view appointments for this doctor");
@@ -229,7 +231,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     public AppointmentResponse updateStatus(Long id, StatusUpdateRequest request) {
         SecurityUtils.requireProvider();
         Appointment appointment = findAppointmentById(id);
-        Long mappedDoctorId = appointmentSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
+        Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
                 .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
         if (!mappedDoctorId.equals(appointment.getDoctorId())) {
             throw new ForbiddenException("You cannot update status for this appointment");
@@ -316,7 +318,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             return;
         }
         if (SecurityUtils.hasRole("PROVIDER")) {
-            Long mapped = appointmentSecurityProperties.doctorIdForProviderEmail(email).orElse(null);
+            Long mapped = providerDoctorResolver.resolveDoctorId(email).orElse(null);
             if (mapped != null && mapped.equals(appointment.getDoctorId())) {
                 return;
             }
@@ -328,7 +330,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         String email = SecurityUtils.requireCurrentUserEmail();
         boolean asPatient = SecurityUtils.hasRole("PATIENT") && email.equalsIgnoreCase(appointment.getPatientEmail());
         boolean asProvider = SecurityUtils.hasRole("PROVIDER")
-                && appointmentSecurityProperties.doctorIdForProviderEmail(email)
+                && providerDoctorResolver.resolveDoctorId(email)
                 .map(d -> d.equals(appointment.getDoctorId()))
                 .orElse(false);
         if (!asPatient && !asProvider) {
