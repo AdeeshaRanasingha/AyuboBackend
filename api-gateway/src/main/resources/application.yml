@@ -28,6 +28,16 @@ spring:
           predicates:
             - Path=/api/payment/**
 
+        - id: telemedicine-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/telemedicine/**
+
+        - id: telemedicine-dev
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/telemedicine/dev/issue-token
+
            
         
         - id: appointment-service
