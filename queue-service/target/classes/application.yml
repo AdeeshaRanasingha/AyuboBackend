@@ -1,0 +1,31 @@
+server:
+  port: 8089
+
+jwt:
+  secret: "0123456789abcdef0123456789abcdef0123456789abcdef01"
+
+spring:
+  application:
+    name: queue-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/ayubo_queue_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+services:
+  auth:
+    base-url: http://localhost:8085
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

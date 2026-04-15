@@ -9,6 +9,7 @@
         <module name="api-gateway" />
         <module name="auth-service" />
         <module name="payment-service" />
+        <module name="queue-service" />
         <module name="telemedicine-service" />
         <module name="ai-service" />
       </profile>
@@ -20,6 +21,7 @@
       <module name="api-gateway" options="-parameters" />
       <module name="auth-service" options="-parameters" />
       <module name="payment-service" options="-parameters" />
+      <module name="queue-service" options="-parameters" />
       <module name="telemedicine-service" options="-parameters" />
     </option>
   </component>
