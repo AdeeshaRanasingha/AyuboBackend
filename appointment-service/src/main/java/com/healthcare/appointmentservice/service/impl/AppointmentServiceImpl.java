@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +44,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AuthProviderDirectoryClient authProviderDirectoryClient;
     @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
+
+    @Value("${app.payment-link:${app.frontend-base-url:http://localhost:5173}/patient-dashboard}")
+    private String paymentLink;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
@@ -263,12 +267,9 @@ public class AppointmentServiceImpl implements AppointmentService {
             appointment.setPaymentStatus("PENDING");
             updated = appointmentRepository.save(appointment);
 
-            sendSimpleNotification(
-                    updated,
-                    "Appointment Approved - Payment Required",
-                    "Good news! Your appointment " + updated.getAppointmentNumber() + " is approved by the doctor. " +
-                            "You can pay now from your dashboard: " + frontendBaseUrl + "/patient-dashboard"
-            );
+            sendAppointmentConfirmedNotification(updated);
+        } else if (newStatus == AppointmentStatus.CANCELLED || newStatus == AppointmentStatus.REJECTED) {
+            sendAppointmentCancelledNotification(updated);
         } else {
             sendSimpleNotification(
                     updated,
@@ -491,16 +492,30 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private void sendAppointmentCreatedNotification(Appointment appointment) {
-        NotificationRequest request = NotificationRequest.builder()
-                .recipientEmail(notificationRecipient(appointment))
-                .recipientPhone(normalizeSriLankanPhone(appointment.getContactNumber()))
-                .subject("Appointment Created")
-                .message("Your appointment " + appointment.getAppointmentNumber() +
-                        " has been created for " + appointment.getAppointmentDate() +
-                        " at " + appointment.getStartTime())
-                .build();
+        sendSimpleNotification(
+                appointment,
+                "Appointment Created",
+                buildScheduledAppointmentMessage(appointment)
+        );
+    }
 
-        notificationServiceClient.sendNotification(request);
+    private void sendAppointmentConfirmedNotification(Appointment appointment) {
+        sendSimpleNotification(
+                appointment,
+                "Appointment Confirmed",
+                buildScheduledAppointmentMessage(appointment) + "\n\n" +
+                        "Please note that payment must be settled prior to the session. " +
+                        "You can securely pay via our portal: " + paymentLink + ".\n\n" +
+                        "Thank you for choosing Ayubo."
+        );
+    }
+
+    private void sendAppointmentCancelledNotification(Appointment appointment) {
+        String doctorLabel = doctorLabel(appointment);
+        String patientName = patientName(appointment);
+        String message = "Dear " + patientName + ", your appointment with " + doctorLabel +
+                " on " + formatAppointmentDateTime(appointment) + " has been cancelled.";
+        sendSimpleNotification(appointment, "Appointment Cancelled", message);
     }
 
     private void sendSimpleNotification(Appointment appointment, String subject, String message) {
@@ -512,6 +527,30 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
 
         notificationServiceClient.sendNotification(request);
+    }
+
+    private String buildScheduledAppointmentMessage(Appointment appointment) {
+        String patientName = patientName(appointment);
+        String doctorLabel = doctorLabel(appointment);
+        return "Dear " + patientName + ", your appointment with " + doctorLabel +
+                " has been successfully scheduled for " + formatAppointmentDateTime(appointment) + ".";
+    }
+
+    private String patientName(Appointment appointment) {
+        if (appointment.getPatientName() != null && !appointment.getPatientName().isBlank()) {
+            return appointment.getPatientName().trim();
+        }
+        return "Patient";
+    }
+
+    private String doctorLabel(Appointment appointment) {
+        return "Dr. " + appointment.getDoctorId();
+    }
+
+    private String formatAppointmentDateTime(Appointment appointment) {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+        return appointment.getAppointmentDate().format(dateFormatter) + " at " + appointment.getStartTime().format(timeFormatter);
     }
 
     private String normalizeContactEmail(String requestedEmail, String fallbackEmail) {
