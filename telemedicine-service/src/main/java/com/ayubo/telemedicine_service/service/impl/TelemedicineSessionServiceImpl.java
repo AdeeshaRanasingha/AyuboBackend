@@ -11,6 +11,7 @@ import com.ayubo.telemedicine_service.exception.ForbiddenException;
 import com.ayubo.telemedicine_service.exception.ResourceNotFoundException;
 import com.ayubo.telemedicine_service.repository.TelemedicineSessionRepository;
 import com.ayubo.telemedicine_service.security.SecurityUtils;
+import com.ayubo.telemedicine_service.service.ProviderDoctorResolver;
 import com.ayubo.telemedicine_service.service.TelemedicineSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
 
     private final TelemedicineSessionRepository telemedicineSessionRepository;
     private final TelemedicineSecurityProperties telemedicineSecurityProperties;
+    private final ProviderDoctorResolver providerDoctorResolver;
 
     @Value("${telemedicine.jitsi.base-url}")
     private String jitsiBaseUrl;
@@ -89,7 +91,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
                     .toList();
         }
         if (SecurityUtils.hasRole("PROVIDER")) {
-            Long doctorId = telemedicineSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
+            Long doctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
                     .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
             return telemedicineSessionRepository.findByDoctorIdOrderByScheduledAtDesc(doctorId)
                     .stream()
@@ -147,7 +149,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
         }
 
         if (SecurityUtils.hasRole("PROVIDER")) {
-            Long mappedDoctorId = telemedicineSecurityProperties.doctorIdForProviderEmail(currentUserEmail).orElse(null);
+            Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(currentUserEmail).orElse(null);
             if (mappedDoctorId != null && mappedDoctorId.equals(session.getDoctorId())) {
                 return;
             }
@@ -160,7 +162,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
         if (SecurityUtils.hasRole("ADMIN")) {
             return;
         }
-        Long mappedDoctorId = telemedicineSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
+        Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
                 .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
         if (!mappedDoctorId.equals(session.getDoctorId())) {
             throw new ForbiddenException("You cannot manage this telemedicine session");
@@ -169,7 +171,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
 
     private Long resolveDoctorIdForCaller(Long requestedDoctorId) {
         if (SecurityUtils.hasRole("PROVIDER")) {
-            Long mappedDoctorId = telemedicineSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
+            Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
                     .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
             if (!mappedDoctorId.equals(requestedDoctorId)) {
                 throw new ForbiddenException("Provider account cannot create sessions for another doctor");

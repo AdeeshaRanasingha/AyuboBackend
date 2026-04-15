@@ -12,6 +12,10 @@ telemedicine:
   security:
     provider-doctor-id-by-email: {}
 
+services:
+  auth:
+    base-url: http://localhost:8085
+
 spring:
   application:
     name: telemedicine-service

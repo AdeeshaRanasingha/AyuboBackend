@@ -1,6 +1,6 @@
-package com.healthcare.appointmentservice.service;
+package com.ayubo.telemedicine_service.service;
 
-import com.healthcare.appointmentservice.config.AppointmentSecurityProperties;
+import com.ayubo.telemedicine_service.config.TelemedicineSecurityProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,14 +21,14 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ProviderDoctorResolver {
 
-    private final AppointmentSecurityProperties appointmentSecurityProperties;
+    private final TelemedicineSecurityProperties telemedicineSecurityProperties;
     private final RestTemplate restTemplate;
 
     @Value("${services.auth.base-url:http://localhost:8085}")
     private String authServiceBaseUrl;
 
     public Optional<Long> resolveDoctorId(String providerEmail) {
-        Optional<Long> configuredId = appointmentSecurityProperties.doctorIdForProviderEmail(providerEmail);
+        Optional<Long> configuredId = telemedicineSecurityProperties.doctorIdForProviderEmail(providerEmail);
         if (configuredId.isPresent()) {
             return configuredId;
         }
