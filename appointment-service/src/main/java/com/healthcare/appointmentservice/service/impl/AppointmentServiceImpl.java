@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -305,7 +306,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
-        LocalDate anchor = LocalDate.parse(date);
+        LocalDate anchor = parseSlotDate(date);
         if (!forCurrentMonth) {
             List<Appointment> bookedAppointments =
                     appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, anchor);
@@ -391,6 +392,26 @@ public class AppointmentServiceImpl implements AppointmentService {
     private static String normalizeSlotTimeKey(String raw) {
         String s = raw.trim();
         return s.length() >= 5 ? s.substring(0, 5) : s;
+    }
+
+    private LocalDate parseSlotDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new BadRequestException("date is required");
+        }
+        String trimmed = raw.trim();
+        String candidate = trimmed;
+        if (trimmed.length() >= 10 && (trimmed.charAt(4) == '-' || trimmed.charAt(4) == '/')) {
+            candidate = trimmed.substring(0, 10);
+        }
+        try {
+            return LocalDate.parse(candidate, DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (DateTimeParseException ex) {
+            try {
+                return LocalDate.parse(candidate, DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            } catch (DateTimeParseException ignored) {
+                throw new BadRequestException("Invalid date format. Expected yyyy-MM-dd.");
+            }
+        }
     }
 
     private void assertCanAccessAppointment(Appointment appointment) {
