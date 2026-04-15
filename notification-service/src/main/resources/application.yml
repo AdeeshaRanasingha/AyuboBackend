@@ -1,5 +1,8 @@
 server:
-  port: 8086
+  port: ${SERVER_PORT:8086}
+  error:
+    # Helps debug 500s from curl/Postman (see "message" in JSON). Disable in production if you expose internals.
+    include-message: always
 
 spring:
   application:
@@ -30,11 +33,16 @@ spring:
 
 notification:
   email:
-    enabled: ${NOTIFICATION_EMAIL_ENABLED:false}
-    from: ${NOTIFICATION_EMAIL_FROM:}
+    # When true, requires spring.mail.username / MAIL_USERNAME (and password) to actually send.
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:true}
+    # Defaults to MAIL_USERNAME if NOTIFICATION_EMAIL_FROM is unset (Gmail etc. need a matching From).
+    from: ${NOTIFICATION_EMAIL_FROM:${MAIL_USERNAME:}}
   sms:
-    enabled: ${NOTIFICATION_SMS_ENABLED:false}
+    # When true, requires Twilio env vars (see README). Disabled destinations still no-op safely.
+    enabled: ${NOTIFICATION_SMS_ENABLED:true}
     twilio:
       account-sid: ${TWILIO_ACCOUNT_SID:}
       auth-token: ${TWILIO_AUTH_TOKEN:}
+      # Use either a Twilio phone number OR a Messaging Service SID (from Twilio console tutorial).
       from-number: ${TWILIO_FROM_NUMBER:}
+      messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}

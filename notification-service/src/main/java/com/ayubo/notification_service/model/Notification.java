@@ -32,7 +32,10 @@ public class Notification {
     @Column(nullable = false, length = 2000)
     private String message;
 
-    @Column(nullable = false)
+    /**
+     * Persisted as {@code is_read} because {@code read} is a reserved word in MySQL.
+     */
+    @Column(name = "is_read", nullable = false)
     private boolean read;
 
     @Column(nullable = false)

@@ -1,6 +1,8 @@
 package com.ayubo.notification_service.service;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -11,9 +13,11 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class EmailSenderService {
 
+    private static final Logger log = LoggerFactory.getLogger(EmailSenderService.class);
+
     private final JavaMailSender mailSender;
 
-    @Value("${notification.email.enabled:false}")
+    @Value("${notification.email.enabled:true}")
     private boolean emailEnabled;
 
     @Value("${notification.email.from:}")
@@ -35,7 +39,7 @@ public class EmailSenderService {
             mailSender.send(mail);
             return true;
         } catch (Exception ex) {
-            System.out.println("Email send failed: " + ex.getMessage());
+            log.error("Email send failed", ex);
             return false;
         }
     }

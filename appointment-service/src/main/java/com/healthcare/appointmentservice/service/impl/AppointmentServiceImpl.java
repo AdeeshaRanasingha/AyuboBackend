@@ -19,6 +19,7 @@ import com.healthcare.appointmentservice.repository.AppointmentRepository;
 import com.healthcare.appointmentservice.security.SecurityUtils;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -40,6 +41,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentSecurityProperties appointmentSecurityProperties;
     private final DoctorScheduleSlotClient doctorScheduleSlotClient;
     private final AuthProviderDirectoryClient authProviderDirectoryClient;
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
@@ -64,7 +67,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .appointmentType(request.getAppointmentType())
                 .patientTitle(request.getTitle())
                 .patientName(request.getName())
-                .contactNumber(request.getMobile())
+                .contactNumber(normalizeSriLankanPhone(request.getMobile()))
                 .identificationType(request.getIdType())
                 .identificationValue(request.getIdValue())
                 .contactEmail(contactEmail)
@@ -173,7 +176,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         if (request.getMobile() != null) {
-            appointment.setContactNumber(request.getMobile());
+            appointment.setContactNumber(normalizeSriLankanPhone(request.getMobile()));
         }
 
         if (request.getIdType() != null) {
@@ -216,14 +219,14 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         if (scheduleChanged) {
             sendSimpleNotification(
-                    notificationRecipient(appointment),
+                    updated,
                     "Appointment Rescheduled",
                     "Your appointment " + updated.getAppointmentNumber() + " has been rescheduled to " +
                             updated.getAppointmentDate() + " " + updated.getStartTime()
             );
         } else {
             sendSimpleNotification(
-                    notificationRecipient(appointment),
+                    updated,
                     "Appointment Updated",
                     "Your appointment " + updated.getAppointmentNumber() + " details have been updated"
             );
@@ -253,17 +256,26 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStatus(newStatus);
         appointment.setNotes(request.getNotes());
 
-        if (newStatus == AppointmentStatus.CONFIRMED) {
-            appointment.setPaymentStatus("PAID");
-        }
-
         Appointment updated = appointmentRepository.save(appointment);
 
-        sendSimpleNotification(
-                notificationRecipient(appointment),
-                "Appointment Status Updated",
-                "Appointment " + updated.getAppointmentNumber() + " status changed to " + updated.getStatus()
-        );
+        if (newStatus == AppointmentStatus.CONFIRMED) {
+            // Doctor approval flow: notify patient to proceed with payment from dashboard.
+            appointment.setPaymentStatus("PENDING");
+            updated = appointmentRepository.save(appointment);
+
+            sendSimpleNotification(
+                    updated,
+                    "Appointment Approved - Payment Required",
+                    "Good news! Your appointment " + updated.getAppointmentNumber() + " is approved by the doctor. " +
+                            "You can pay now from your dashboard: " + frontendBaseUrl + "/patient-dashboard"
+            );
+        } else {
+            sendSimpleNotification(
+                    updated,
+                    "Appointment Status Updated",
+                    "Appointment " + updated.getAppointmentNumber() + " status changed to " + updated.getStatus()
+            );
+        }
 
         return mapToResponse(updated);
     }
@@ -284,7 +296,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointmentRepository.save(appointment);
 
         sendSimpleNotification(
-                notificationRecipient(appointment),
+                appointment,
                 "Appointment Cancelled",
                 "Appointment " + appointment.getAppointmentNumber() + " has been cancelled"
         );
@@ -481,7 +493,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private void sendAppointmentCreatedNotification(Appointment appointment) {
         NotificationRequest request = NotificationRequest.builder()
                 .recipientEmail(notificationRecipient(appointment))
-                .recipientPhone(null)
+                .recipientPhone(normalizeSriLankanPhone(appointment.getContactNumber()))
                 .subject("Appointment Created")
                 .message("Your appointment " + appointment.getAppointmentNumber() +
                         " has been created for " + appointment.getAppointmentDate() +
@@ -491,10 +503,10 @@ public class AppointmentServiceImpl implements AppointmentService {
         notificationServiceClient.sendNotification(request);
     }
 
-    private void sendSimpleNotification(String recipientEmail, String subject, String message) {
+    private void sendSimpleNotification(Appointment appointment, String subject, String message) {
         NotificationRequest request = NotificationRequest.builder()
-                .recipientEmail(recipientEmail)
-                .recipientPhone(null)
+                .recipientEmail(notificationRecipient(appointment))
+                .recipientPhone(normalizeSriLankanPhone(appointment.getContactNumber()))
                 .subject(subject)
                 .message(message)
                 .build();
@@ -524,5 +536,33 @@ public class AppointmentServiceImpl implements AppointmentService {
             return appointment.getContactEmail();
         }
         return appointment.getPatientEmail();
+    }
+
+    /**
+     * Normalizes common Sri Lankan formats to E.164 required by SMS providers:
+     * - 07XXXXXXXX -> +947XXXXXXXX
+     * - 94XXXXXXXXX -> +94XXXXXXXXX
+     * - +94XXXXXXXXX -> +94XXXXXXXXX
+     */
+    private String normalizeSriLankanPhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return null;
+        }
+
+        String cleaned = rawPhone.replaceAll("[^\\d+]", "");
+        if (cleaned.startsWith("+94")) {
+            return cleaned;
+        }
+
+        if (cleaned.startsWith("94")) {
+            return "+" + cleaned;
+        }
+
+        if (cleaned.startsWith("0") && cleaned.length() == 10) {
+            return "+94" + cleaned.substring(1);
+        }
+
+        // Fallback: return original cleaned string so existing non-SL formats still pass through.
+        return cleaned;
     }
 }
