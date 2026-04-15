@@ -1,6 +1,5 @@
 package com.ayubo.telemedicine_service.service.impl;
 
-import com.ayubo.telemedicine_service.config.TelemedicineSecurityProperties;
 import com.ayubo.telemedicine_service.dto.SessionCreateRequest;
 import com.ayubo.telemedicine_service.dto.SessionResponse;
 import com.ayubo.telemedicine_service.dto.SessionStatusUpdateRequest;
@@ -27,7 +26,6 @@ import java.util.UUID;
 public class TelemedicineSessionServiceImpl implements TelemedicineSessionService {
 
     private final TelemedicineSessionRepository telemedicineSessionRepository;
-    private final TelemedicineSecurityProperties telemedicineSecurityProperties;
     private final ProviderDoctorResolver providerDoctorResolver;
 
     @Value("${telemedicine.jitsi.base-url}")
