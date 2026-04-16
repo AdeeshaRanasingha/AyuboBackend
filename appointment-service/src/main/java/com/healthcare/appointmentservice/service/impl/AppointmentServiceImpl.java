@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -342,6 +343,38 @@ public class AppointmentServiceImpl implements AppointmentService {
                 "Appointment Cancelled",
                 "Appointment " + appointment.getAppointmentNumber() + " has been cancelled"
         );
+    }
+
+    @Override
+    public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Prescription file is required");
+        }
+
+        Appointment appointment = findAppointmentById(appointmentId);
+        // Allow provider or admin (controller already restricts, but double-check access)
+        assertCanModifyAppointmentAsPatientOrProvider(appointment);
+
+        try {
+            String original = file.getOriginalFilename();
+            String ext = "";
+            if (original != null && original.lastIndexOf('.') > 0) {
+                ext = original.substring(original.lastIndexOf('.'));
+            }
+            String fileName = "prescription-" + appointmentId + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8) + ext;
+            java.nio.file.Path uploadsDir = java.nio.file.Paths.get("uploads", "prescriptions");
+            java.nio.file.Files.createDirectories(uploadsDir);
+            java.nio.file.Path filePath = uploadsDir.resolve(fileName);
+            file.transferTo(filePath.toFile());
+
+            // Store a relative URL/path so frontend or reverse proxy can serve it if configured
+            String url = "/uploads/prescriptions/" + fileName;
+            appointment.setPrescriptionUrl(url);
+            Appointment saved = appointmentRepository.save(appointment);
+            return mapToResponse(saved);
+        } catch (Exception ex) {
+            throw new RuntimeException("Failed to save prescription file", ex);
+        }
     }
 
     @Override
