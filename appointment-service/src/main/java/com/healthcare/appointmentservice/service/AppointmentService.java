@@ -25,18 +25,16 @@ public interface AppointmentService {
 
     AppointmentResponse updateStatus(Long id, StatusUpdateRequest request);
 
-<<<<<<< tharushi
+
     AppointmentResponse updatePaymentStatus(Long id, PaymentStatusUpdateRequest request);
 
     void cancelAppointment(Long id, String cancelReason);
 
-    List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
-}
-=======
-    void cancelAppointment(Long id);
+    AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
+
 
     List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
     // Add this to AppointmentService.java
     AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
 }
->>>>>>> main
+
