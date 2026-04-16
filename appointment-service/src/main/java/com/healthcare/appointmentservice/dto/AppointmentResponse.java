@@ -37,4 +37,7 @@ public class AppointmentResponse {
     private String paymentStatus;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // ✅ ADDED THIS LINE SO REACT CAN SEE THE URL
+    private String prescriptionUrl;
 }

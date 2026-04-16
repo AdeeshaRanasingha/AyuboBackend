@@ -10,7 +10,11 @@ import com.healthcare.appointmentservice.client.AuthProviderDirectoryClient;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,21 @@ public class AppointmentController {
                 .message("Appointment created successfully")
                 .data(appointmentService.createAppointment(request))
                 .build();
+    }
+
+    @PostMapping(value = "/{id}/prescription", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('PROVIDER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse> uploadPrescription(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+
+        AppointmentResponse updatedAppointment = appointmentService.uploadPrescription(id, file);
+
+        return ResponseEntity.ok(ApiResponse.builder()
+                .success(true)
+                .message("Prescription uploaded successfully")
+                .data(updatedAppointment)
+                .build());
     }
 
     @GetMapping("/my")
