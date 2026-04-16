@@ -9,6 +9,7 @@
         <module name="api-gateway" />
         <module name="auth-service" />
         <module name="payment-service" />
+        <module name="appointment-service" />
         <module name="ai-service" />
       </profile>
     </annotationProcessing>
@@ -17,6 +18,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="ai-service" options="-parameters" />
       <module name="api-gateway" options="-parameters" />
+      <module name="appointment-service" options="-parameters" />
       <module name="auth-service" options="-parameters" />
       <module name="payment-service" options="-parameters" />
     </option>
