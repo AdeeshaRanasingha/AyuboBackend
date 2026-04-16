@@ -6,6 +6,7 @@ import com.ayubo.auth_service.repository.MedicalRecordRepository;
 import com.ayubo.auth_service.repository.PatientRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +24,21 @@ public class RecordController {
 
     @Autowired
     private MedicalRecordRepository recordRepository;
+
+    @Autowired
+    private MedicalRecordRepository medicalRecordRepository;
+
+    // Inside your auth-service -> RecordController.java
+
+    @GetMapping("/patient/{patientId}")
+    @PreAuthorize("hasRole('PATIENT') or hasRole('PROVIDER') or hasRole('ADMIN')")
+    public ResponseEntity<List<MedicalRecord>> getRecordsByPatientId(@PathVariable Long patientId) {
+
+        // Fetch from Auth_db using the custom repository method
+        List<MedicalRecord> records = medicalRecordRepository.findByPatientIdOrderByUploadDateDesc(patientId);
+
+        return ResponseEntity.ok(records);
+    }
 
     // --- GET ALL RECORDS FOR THE LOGGED IN PATIENT ---
     @GetMapping("/records")
