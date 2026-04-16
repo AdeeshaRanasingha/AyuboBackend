@@ -8,8 +8,8 @@ mysql -u root -pHimasha@2002 -e "SHOW DATABASES;" 2>nul
 if %errorlevel% equ 0 (
     echo [OK] MySQL is running and credentials are correct
     echo.
-    echo Creating appointment_db database if not exists...
-    mysql -u root -pHimasha@2002 -e "CREATE DATABASE IF NOT EXISTS appointment_db;"
+    echo Creating ayubo_appointment_db database if not exists...
+    mysql -u root -pHimasha@2002 -e "CREATE DATABASE IF NOT EXISTS ayubo_appointment_db;"
     echo [OK] Database ready
 ) else (
     echo [ERROR] Cannot connect to MySQL!

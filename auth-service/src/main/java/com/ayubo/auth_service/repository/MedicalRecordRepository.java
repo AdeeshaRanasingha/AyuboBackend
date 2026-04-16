@@ -8,6 +8,7 @@ import java.util.List;
 
 @Repository
 public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Long> {
-    // Custom query to find all documents for a logged-in patient
+
+    // Custom query to find all documents for a specific patient, newest first
     List<MedicalRecord> findByPatientIdOrderByUploadDateDesc(Long patientId);
 }

@@ -22,7 +22,7 @@ public class AuthProviderDirectoryClient {
     private static final Logger log = LoggerFactory.getLogger(AuthProviderDirectoryClient.class);
 
     private static final ParameterizedTypeReference<List<Map<String, Object>>> DIRECTORY_TYPE =
-            new ParameterizedTypeReference<>() {};
+            new ParameterizedTypeReference<List<Map<String, Object>>>() {};
 
     private final RestClient authRestClient;
     private final RestClient authFallbackRestClient;
@@ -42,7 +42,7 @@ public class AuthProviderDirectoryClient {
     }
 
     public Optional<Long> findProviderIdByEmail(String email) {
-        if (email == null || email.isBlank()) {
+        if (email == null || email.trim().isEmpty()) {
             return Optional.empty();
         }
         try {
@@ -81,6 +81,25 @@ public class AuthProviderDirectoryClient {
         return Optional.empty();
     }
 
+    public List<Map<String, Object>> fetchProviderDirectory() {
+        try {
+            List<Map<String, Object>> body = fetchDirectory(authRestClient);
+            return body != null ? body : List.of();
+        } catch (RestClientException ex) {
+            if (shouldTryFallback()) {
+                try {
+                    List<Map<String, Object>> fallback = fetchDirectory(authFallbackRestClient);
+                    return fallback != null ? fallback : List.of();
+                } catch (RestClientException fallbackEx) {
+                    log.warn("Could not load /api/provider/directory: {} (fallback: {})", ex.getMessage(), fallbackEx.getMessage());
+                    return List.of();
+                }
+            }
+            log.warn("Could not load /api/provider/directory: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
     private List<Map<String, Object>> fetchDirectory(RestClient client) {
         return client.get()
                 .uri("/api/provider/directory")
@@ -89,10 +108,10 @@ public class AuthProviderDirectoryClient {
     }
 
     private boolean shouldTryFallback() {
-        if (authFallbackBaseUrl == null || authFallbackBaseUrl.isBlank()) {
+        if (authFallbackBaseUrl == null || authFallbackBaseUrl.trim().isEmpty()) {
             return false;
         }
-        if (authBaseUrl == null || authBaseUrl.isBlank()) {
+        if (authBaseUrl == null || authBaseUrl.trim().isEmpty()) {
             return true;
         }
         return !authBaseUrl.trim().equalsIgnoreCase(authFallbackBaseUrl.trim());
@@ -102,7 +121,8 @@ public class AuthProviderDirectoryClient {
         if (id == null) {
             return Optional.empty();
         }
-        if (id instanceof Number n) {
+        if (id instanceof Number) {
+            Number n = (Number) id;
             return Optional.of(n.longValue());
         }
         try {
