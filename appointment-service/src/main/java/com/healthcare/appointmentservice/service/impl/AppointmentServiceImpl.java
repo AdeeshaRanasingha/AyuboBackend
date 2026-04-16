@@ -48,7 +48,6 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final NotificationServiceClient notificationServiceClient;
     private final DoctorScheduleSlotClient doctorScheduleSlotClient;
     private final ProviderDoctorResolver providerDoctorResolver;
-    private final AuthProviderDirectoryClient authProviderDirectoryClient;
 
     @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
