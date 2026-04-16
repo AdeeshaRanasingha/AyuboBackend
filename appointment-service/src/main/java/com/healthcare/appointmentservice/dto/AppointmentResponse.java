@@ -41,4 +41,7 @@ public class AppointmentResponse {
     private Integer rescheduleCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    // ✅ ADDED THIS LINE SO REACT CAN SEE THE URL
+    private String prescriptionUrl;
 }
