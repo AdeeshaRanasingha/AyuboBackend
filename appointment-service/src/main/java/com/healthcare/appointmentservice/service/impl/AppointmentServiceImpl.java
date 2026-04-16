@@ -34,6 +34,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.io.File;
+import java.io.IOException;
+
 @Service
 @RequiredArgsConstructor
 public class AppointmentServiceImpl implements AppointmentService {
@@ -97,6 +105,41 @@ public class AppointmentServiceImpl implements AppointmentService {
         sendAppointmentCreatedNotification(saved);
 
         return mapToResponse(saved);
+    }
+
+    @Override
+    public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
+        // 1. Find the appointment
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+
+        try {
+            // 2. Create an "uploads/prescriptions" folder in your project root if it doesn't exist
+            String uploadDir = "uploads/prescriptions/";
+            File dir = new File(uploadDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            // 3. Generate a safe, unique file name (e.g., 15_17123456_prescription.pdf)
+            String fileName = appointmentId + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            Path filePath = Paths.get(uploadDir + fileName);
+
+            // 4. Save the file to the folder
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            // 5. Save the URL path in the database so the patient can download it later
+            appointment.setPrescriptionUrl("/uploads/prescriptions/" + fileName);
+
+            // Optional: Automatically mark appointment as completed when prescription is given
+            appointment.setStatus(AppointmentStatus.COMPLETED);
+
+            appointment = appointmentRepository.save(appointment);
+            return mapToResponse(appointment);
+
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store prescription file", e);
+        }
     }
 
     @Override
