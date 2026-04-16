@@ -120,6 +120,19 @@ public class Appointment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // Add this near your other fields (like noteOrAddress)
+    @Column(name = "prescription_url")
+    private String prescriptionUrl;
+
+    // Add the Getter and Setter at the bottom
+    public String getPrescriptionUrl() {
+        return prescriptionUrl;
+    }
+
+    public void setPrescriptionUrl(String prescriptionUrl) {
+        this.prescriptionUrl = prescriptionUrl;
+    }
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();
