@@ -3,6 +3,7 @@ package com.healthcare.appointmentservice.service;
 import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
+import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
 import com.healthcare.appointmentservice.dto.SlotStatusResponse;
 
@@ -14,6 +15,8 @@ public interface AppointmentService {
 
     AppointmentResponse getAppointmentById(Long id);
 
+    AppointmentResponse getAppointmentPublic(Long id);
+
     List<AppointmentResponse> getMyAppointments();
 
     List<AppointmentResponse> getAppointmentsByDoctor(Long doctorId);
@@ -22,9 +25,16 @@ public interface AppointmentService {
 
     AppointmentResponse updateStatus(Long id, StatusUpdateRequest request);
 
-    void cancelAppointment(Long id);
+
+    AppointmentResponse updatePaymentStatus(Long id, PaymentStatusUpdateRequest request);
+
+    void cancelAppointment(Long id, String cancelReason);
+
+    AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
+
 
     List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
     // Add this to AppointmentService.java
     AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
 }
+
