@@ -3,8 +3,11 @@ package com.ayubo.auth_service.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "provider_schedules")
+@Table(name = "doctor_schedule_slots")
 public class ProviderSchedule {
 
     @Id
@@ -16,10 +19,48 @@ public class ProviderSchedule {
     @JsonIgnore // Prevents infinite loops when sending JSON back to React
     private MedicalProvider provider;
 
+    @Column(name = "slot_date", nullable = false)
+    @JsonIgnore
+    private LocalDate slotDate;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @JsonIgnore
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    @JsonIgnore
+    private LocalDateTime updatedAt;
+
     private String date; // Format: YYYY-MM-DD
     private String startTime; // Format: HH:MM
     private String endTime; // Format: HH:MM
     private Integer maxPatients;
+    private String hospitalName;
+
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+        syncSlotDate();
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
+        syncSlotDate();
+    }
+
+    private void syncSlotDate() {
+        if (date != null && !date.isBlank()) {
+            slotDate = LocalDate.parse(date);
+        } else if (slotDate != null) {
+            date = slotDate.toString();
+        }
+    }
 
     // ==========================================
     // GETTERS AND SETTERS
@@ -31,8 +72,13 @@ public class ProviderSchedule {
     public MedicalProvider getProvider() { return provider; }
     public void setProvider(MedicalProvider provider) { this.provider = provider; }
 
-    public String getDate() { return date; }
-    public void setDate(String date) { this.date = date; }
+    public String getDate() {
+        return date != null ? date : (slotDate != null ? slotDate.toString() : null);
+    }
+    public void setDate(String date) {
+        this.date = date;
+        syncSlotDate();
+    }
 
     public String getStartTime() { return startTime; }
     public void setStartTime(String startTime) { this.startTime = startTime; }

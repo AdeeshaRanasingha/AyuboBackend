@@ -1,0 +1,5 @@
+auth-service/src/main/resources/application.yml
+.idea/modules.xml
+
+# Local secrets (never commit)
+notification-service/run-notification.local.ps1

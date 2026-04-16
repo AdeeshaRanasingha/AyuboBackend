@@ -1,6 +1,9 @@
 package com.healthcare.appointmentservice.service.impl;
 
+import com.healthcare.appointmentservice.client.AuthProviderDirectoryClient;
+import com.healthcare.appointmentservice.client.DoctorScheduleSlotClient;
 import com.healthcare.appointmentservice.client.NotificationServiceClient;
+import com.healthcare.appointmentservice.client.dto.AuthScheduleSlotRow;
 import com.healthcare.appointmentservice.config.AppointmentSecurityProperties;
 import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
@@ -16,13 +19,20 @@ import com.healthcare.appointmentservice.repository.AppointmentRepository;
 import com.healthcare.appointmentservice.security.SecurityUtils;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,11 +41,18 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final NotificationServiceClient notificationServiceClient;
     private final AppointmentSecurityProperties appointmentSecurityProperties;
+    private final DoctorScheduleSlotClient doctorScheduleSlotClient;
+    private final AuthProviderDirectoryClient authProviderDirectoryClient;
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
+    @Value("${app.payment-link:${app.frontend-base-url:http://localhost:5173}/patient-dashboard}")
+    private String paymentLink;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
-        SecurityUtils.requirePatient();
-        String patientEmail = SecurityUtils.requireCurrentUserEmail();
+        String patientEmail = resolvePatientEmail(request);
+        String contactEmail = normalizeContactEmail(request.getEmail(), patientEmail);
 
         validateTimeRange(request.getStartTime(), request.getEndTime());
 
@@ -51,15 +68,25 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .appointmentNumber(generateAppointmentNumber())
                 .patientId(request.getPatientId())
                 .patientEmail(patientEmail)
+                .appointmentFor(request.getAppointmentFor())
+                .appointmentType(request.getAppointmentType())
+                .patientTitle(request.getTitle())
+                .patientName(request.getName())
+                .contactNumber(normalizeSriLankanPhone(request.getMobile()))
+                .identificationType(request.getIdType())
+                .identificationValue(request.getIdValue())
+                .contactEmail(contactEmail)
                 .doctorId(request.getDoctorId())
                 .specialty(request.getSpecialty())
                 .appointmentDate(request.getAppointmentDate())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .reason(request.getReason())
+                .noteOrAddress(request.getNoteOrAddress())
+                .noShowRefund(Boolean.TRUE.equals(request.getNoShowRefund()))
+                .onGoingNumber(Boolean.TRUE.equals(request.getOnGoingNumber()))
                 .status(AppointmentStatus.PENDING_PAYMENT)
                 .paymentStatus("PENDING")
-                .meetingLink(null)
                 .notes("Appointment created successfully")
                 .cancelReason(null)
                 .rescheduleCount(0)
@@ -92,8 +119,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     public List<AppointmentResponse> getAppointmentsByDoctor(Long doctorId) {
         SecurityUtils.requireProvider();
-        Long mappedDoctorId = appointmentSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
-                .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
+        Long mappedDoctorId = requireDoctorIdForProvider(SecurityUtils.requireCurrentUserEmail());
         if (!mappedDoctorId.equals(doctorId)) {
             throw new ForbiddenException("You cannot view appointments for this doctor");
         }
@@ -120,6 +146,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         validateTimeRange(newStartTime, newEndTime);
 
+        boolean scheduleChanged = !newDate.equals(appointment.getAppointmentDate())
+                || !newStartTime.equals(appointment.getStartTime())
+                || !newEndTime.equals(appointment.getEndTime());
+
         appointmentRepository.findByDoctorIdAndAppointmentDateAndStartTime(
                 appointment.getDoctorId(),
                 newDate,
@@ -134,22 +164,78 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStartTime(newStartTime);
         appointment.setEndTime(newEndTime);
 
+        if (request.getAppointmentFor() != null) {
+            appointment.setAppointmentFor(request.getAppointmentFor());
+        }
+
+        if (request.getAppointmentType() != null) {
+            appointment.setAppointmentType(request.getAppointmentType());
+        }
+
+        if (request.getTitle() != null) {
+            appointment.setPatientTitle(request.getTitle());
+        }
+
+        if (request.getName() != null) {
+            appointment.setPatientName(request.getName());
+        }
+
+        if (request.getMobile() != null) {
+            appointment.setContactNumber(normalizeSriLankanPhone(request.getMobile()));
+        }
+
+        if (request.getIdType() != null) {
+            appointment.setIdentificationType(request.getIdType());
+        }
+
+        if (request.getIdValue() != null) {
+            appointment.setIdentificationValue(request.getIdValue());
+        }
+
+        if (request.getEmail() != null) {
+            appointment.setContactEmail(normalizeContactEmail(request.getEmail(), appointment.getPatientEmail()));
+        }
+
         if (request.getReason() != null) {
             appointment.setReason(request.getReason());
         }
 
-        appointment.setStatus(AppointmentStatus.RESCHEDULED);
-        appointment.setRescheduleCount(appointment.getRescheduleCount() + 1);
-        appointment.setNotes("Appointment rescheduled");
+        if (request.getNoteOrAddress() != null) {
+            appointment.setNoteOrAddress(request.getNoteOrAddress());
+        }
+
+        if (request.getNoShowRefund() != null) {
+            appointment.setNoShowRefund(request.getNoShowRefund());
+        }
+
+        if (request.getOnGoingNumber() != null) {
+            appointment.setOnGoingNumber(request.getOnGoingNumber());
+        }
+
+        if (scheduleChanged) {
+            appointment.setStatus(AppointmentStatus.RESCHEDULED);
+            appointment.setRescheduleCount(appointment.getRescheduleCount() + 1);
+            appointment.setNotes("Appointment rescheduled");
+        } else {
+            appointment.setNotes("Appointment details updated");
+        }
 
         Appointment updated = appointmentRepository.save(appointment);
 
-        sendSimpleNotification(
-                appointment.getPatientEmail(),
-                "Appointment Rescheduled",
-                "Your appointment " + updated.getAppointmentNumber() + " has been rescheduled to " +
-                        updated.getAppointmentDate() + " " + updated.getStartTime()
-        );
+        if (scheduleChanged) {
+            sendSimpleNotification(
+                    updated,
+                    "Appointment Rescheduled",
+                    "Your appointment " + updated.getAppointmentNumber() + " has been rescheduled to " +
+                            updated.getAppointmentDate() + " " + updated.getStartTime()
+            );
+        } else {
+            sendSimpleNotification(
+                    updated,
+                    "Appointment Updated",
+                    "Your appointment " + updated.getAppointmentNumber() + " details have been updated"
+            );
+        }
 
         return mapToResponse(updated);
     }
@@ -158,8 +244,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     public AppointmentResponse updateStatus(Long id, StatusUpdateRequest request) {
         SecurityUtils.requireProvider();
         Appointment appointment = findAppointmentById(id);
-        Long mappedDoctorId = appointmentSecurityProperties.doctorIdForProviderEmail(SecurityUtils.requireCurrentUserEmail())
-                .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
+        Long mappedDoctorId = requireDoctorIdForProvider(SecurityUtils.requireCurrentUserEmail());
         if (!mappedDoctorId.equals(appointment.getDoctorId())) {
             throw new ForbiddenException("You cannot update status for this appointment");
         }
@@ -176,17 +261,23 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStatus(newStatus);
         appointment.setNotes(request.getNotes());
 
-        if (newStatus == AppointmentStatus.CONFIRMED) {
-            appointment.setPaymentStatus("PAID");
-        }
-
         Appointment updated = appointmentRepository.save(appointment);
 
-        sendSimpleNotification(
-                appointment.getPatientEmail(),
-                "Appointment Status Updated",
-                "Appointment " + updated.getAppointmentNumber() + " status changed to " + updated.getStatus()
-        );
+        if (newStatus == AppointmentStatus.CONFIRMED) {
+            // Doctor approval flow: notify patient to proceed with payment from dashboard.
+            appointment.setPaymentStatus("PENDING");
+            updated = appointmentRepository.save(appointment);
+
+            sendAppointmentConfirmedNotification(updated);
+        } else if (newStatus == AppointmentStatus.CANCELLED || newStatus == AppointmentStatus.REJECTED) {
+            sendAppointmentCancelledNotification(updated);
+        } else {
+            sendSimpleNotification(
+                    updated,
+                    "Appointment Status Updated",
+                    "Appointment " + updated.getAppointmentNumber() + " status changed to " + updated.getStatus()
+            );
+        }
 
         return mapToResponse(updated);
     }
@@ -207,38 +298,120 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointmentRepository.save(appointment);
 
         sendSimpleNotification(
-                appointment.getPatientEmail(),
+                appointment,
                 "Appointment Cancelled",
                 "Appointment " + appointment.getAppointmentNumber() + " has been cancelled"
         );
     }
 
     @Override
-    public List<String> getAvailableSlots(Long doctorId, String date) {
-        SecurityUtils.requireCurrentUserEmail();
+    public List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
+        LocalDate anchor = parseSlotDate(date);
+        if (!forCurrentMonth) {
+            List<Appointment> bookedAppointments =
+                    appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, anchor);
+            return buildAvailableSlotTimesForDay(doctorId, anchor, bookedAppointments);
+        }
 
-        LocalDate appointmentDate = LocalDate.parse(date);
+        LocalDate monthStart = anchor.withDayOfMonth(1);
+        LocalDate monthEnd = anchor.withDayOfMonth(anchor.lengthOfMonth());
+        List<Appointment> monthBookings = appointmentRepository.findByDoctorIdAndAppointmentDateBetween(
+                doctorId,
+                monthStart,
+                monthEnd
+        );
 
-        List<Appointment> bookedAppointments =
-                appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, appointmentDate);
+        Map<LocalDate, Map<String, Long>> bookedByDay = monthBookings.stream()
+                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED
+                        && a.getStatus() != AppointmentStatus.REJECTED)
+                .collect(Collectors.groupingBy(
+                        Appointment::getAppointmentDate,
+                        Collectors.groupingBy(
+                                a -> a.getStartTime().toString().substring(0, 5),
+                                Collectors.counting()
+                        )
+                ));
 
-        List<String> allSlots = new ArrayList<>();
-        allSlots.add("09:00");
-        allSlots.add("10:00");
-        allSlots.add("11:00");
-        allSlots.add("12:00");
-        allSlots.add("14:00");
-        allSlots.add("15:00");
-        allSlots.add("16:00");
+        List<String> combined = new ArrayList<>();
+        for (LocalDate d = monthStart; !d.isAfter(monthEnd); d = d.plusDays(1)) {
+            Map<String, Long> bookedForDay = bookedByDay.getOrDefault(d, Map.of());
+            for (String time : buildAvailableSlotTimesForDay(doctorId, d, bookedForDay)) {
+                combined.add(d + " " + time);
+            }
+        }
+        combined.sort(String::compareTo);
+        return combined;
+    }
 
-        List<String> bookedSlots = bookedAppointments.stream()
-                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED && a.getStatus() != AppointmentStatus.REJECTED)
-                .map(a -> a.getStartTime().toString().substring(0, 5))
+    /**
+     * Returns start times (HH:mm) still open for booking on {@code day}, using auth schedule capacity
+     * minus non-cancelled appointments for that day.
+     */
+    private List<String> buildAvailableSlotTimesForDay(
+            long doctorId,
+            LocalDate day,
+            List<Appointment> bookedAppointmentsForDay
+    ) {
+        Map<String, Long> bookedCountBySlot = bookedAppointmentsForDay.stream()
+                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED
+                        && a.getStatus() != AppointmentStatus.REJECTED)
+                .collect(Collectors.groupingBy(
+                        a -> a.getStartTime().toString().substring(0, 5),
+                        Collectors.counting()
+                ));
+        return buildAvailableSlotTimesForDay(doctorId, day, bookedCountBySlot);
+    }
+
+    private List<String> buildAvailableSlotTimesForDay(
+            long doctorId,
+            LocalDate day,
+            Map<String, Long> bookedCountBySlot
+    ) {
+        List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, day.toString());
+        Map<String, Integer> capacityByStart = new LinkedHashMap<>();
+        for (AuthScheduleSlotRow row : scheduledRows) {
+            if (row.startTime() == null || row.startTime().isBlank()) {
+                continue;
+            }
+            String slotKey = normalizeSlotTimeKey(row.startTime());
+            int cap = row.maxPatients() != null && row.maxPatients() > 0 ? row.maxPatients() : 1;
+            capacityByStart.merge(slotKey, cap, Integer::max);
+        }
+
+        if (capacityByStart.isEmpty()) {
+            return List.of();
+        }
+
+        return capacityByStart.entrySet().stream()
+                .filter(e -> bookedCountBySlot.getOrDefault(e.getKey(), 0L) < e.getValue())
+                .map(Map.Entry::getKey)
+                .sorted()
                 .toList();
+    }
 
-        return allSlots.stream()
-                .filter(slot -> !bookedSlots.contains(slot))
-                .toList();
+    private static String normalizeSlotTimeKey(String raw) {
+        String s = raw.trim();
+        return s.length() >= 5 ? s.substring(0, 5) : s;
+    }
+
+    private LocalDate parseSlotDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new BadRequestException("date is required");
+        }
+        String trimmed = raw.trim();
+        String candidate = trimmed;
+        if (trimmed.length() >= 10 && (trimmed.charAt(4) == '-' || trimmed.charAt(4) == '/')) {
+            candidate = trimmed.substring(0, 10);
+        }
+        try {
+            return LocalDate.parse(candidate, DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (DateTimeParseException ex) {
+            try {
+                return LocalDate.parse(candidate, DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            } catch (DateTimeParseException ignored) {
+                throw new BadRequestException("Invalid date format. Expected yyyy-MM-dd.");
+            }
+        }
     }
 
     private void assertCanAccessAppointment(Appointment appointment) {
@@ -247,8 +420,8 @@ public class AppointmentServiceImpl implements AppointmentService {
             return;
         }
         if (SecurityUtils.hasRole("PROVIDER")) {
-            Long mapped = appointmentSecurityProperties.doctorIdForProviderEmail(email).orElse(null);
-            if (mapped != null && mapped.equals(appointment.getDoctorId())) {
+            Optional<Long> mapped = resolveDoctorIdForProviderEmail(email);
+            if (mapped.isPresent() && mapped.get().equals(appointment.getDoctorId())) {
                 return;
             }
         }
@@ -259,12 +432,25 @@ public class AppointmentServiceImpl implements AppointmentService {
         String email = SecurityUtils.requireCurrentUserEmail();
         boolean asPatient = SecurityUtils.hasRole("PATIENT") && email.equalsIgnoreCase(appointment.getPatientEmail());
         boolean asProvider = SecurityUtils.hasRole("PROVIDER")
-                && appointmentSecurityProperties.doctorIdForProviderEmail(email)
+                && resolveDoctorIdForProviderEmail(email)
                 .map(d -> d.equals(appointment.getDoctorId()))
                 .orElse(false);
         if (!asPatient && !asProvider) {
             throw new ForbiddenException("Not allowed to modify this appointment");
         }
+    }
+
+    private Optional<Long> resolveDoctorIdForProviderEmail(String email) {
+        Optional<Long> yaml = appointmentSecurityProperties.doctorIdForProviderEmail(email);
+        if (yaml.isPresent()) {
+            return yaml;
+        }
+        return authProviderDirectoryClient.findProviderIdByEmail(email);
+    }
+
+    private Long requireDoctorIdForProvider(String email) {
+        return resolveDoctorIdForProviderEmail(email)
+                .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
     }
 
     private Appointment findAppointmentById(Long id) {
@@ -298,15 +484,26 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .appointmentNumber(appointment.getAppointmentNumber())
                 .patientId(appointment.getPatientId())
                 .patientEmail(appointment.getPatientEmail())
+                .appointmentFor(appointment.getAppointmentFor())
+                .appointmentType(appointment.getAppointmentType())
+                .patientTitle(appointment.getPatientTitle())
+                .patientName(appointment.getPatientName())
+                .contactNumber(appointment.getContactNumber())
+                .identificationType(appointment.getIdentificationType())
+                .identificationValue(appointment.getIdentificationValue())
+                .contactEmail(appointment.getContactEmail())
                 .doctorId(appointment.getDoctorId())
                 .specialty(appointment.getSpecialty())
                 .appointmentDate(appointment.getAppointmentDate())
                 .startTime(appointment.getStartTime())
                 .endTime(appointment.getEndTime())
                 .reason(appointment.getReason())
+                .noteOrAddress(appointment.getNoteOrAddress())
+                .noShowRefund(appointment.getNoShowRefund())
+                .onGoingNumber(appointment.getOnGoingNumber())
                 .status(appointment.getStatus().name())
                 .paymentStatus(appointment.getPaymentStatus())
-                .meetingLink(appointment.getMeetingLink())
+                .totalPrice(appointment.getTotalPrice())
                 .notes(appointment.getNotes())
                 .cancelReason(appointment.getCancelReason())
                 .rescheduleCount(appointment.getRescheduleCount())
@@ -316,26 +513,116 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private void sendAppointmentCreatedNotification(Appointment appointment) {
-        NotificationRequest request = NotificationRequest.builder()
-                .recipientEmail(appointment.getPatientEmail())
-                .recipientPhone(null)
-                .subject("Appointment Created")
-                .message("Your appointment " + appointment.getAppointmentNumber() +
-                        " has been created for " + appointment.getAppointmentDate() +
-                        " at " + appointment.getStartTime())
-                .build();
-
-        notificationServiceClient.sendNotification(request);
+        sendSimpleNotification(
+                appointment,
+                "Appointment Created",
+                buildScheduledAppointmentMessage(appointment)
+        );
     }
 
-    private void sendSimpleNotification(String recipientEmail, String subject, String message) {
+    private void sendAppointmentConfirmedNotification(Appointment appointment) {
+        sendSimpleNotification(
+                appointment,
+                "Appointment Confirmed",
+                buildScheduledAppointmentMessage(appointment) + "\n\n" +
+                        "Please note that payment must be settled prior to the session. " +
+                        "You can securely pay via our portal: " + paymentLink + ".\n\n" +
+                        "Thank you for choosing Ayubo."
+        );
+    }
+
+    private void sendAppointmentCancelledNotification(Appointment appointment) {
+        String doctorLabel = doctorLabel(appointment);
+        String patientName = patientName(appointment);
+        String message = "Dear " + patientName + ", your appointment with " + doctorLabel +
+                " on " + formatAppointmentDateTime(appointment) + " has been cancelled.";
+        sendSimpleNotification(appointment, "Appointment Cancelled", message);
+    }
+
+    private void sendSimpleNotification(Appointment appointment, String subject, String message) {
         NotificationRequest request = NotificationRequest.builder()
-                .recipientEmail(recipientEmail)
-                .recipientPhone(null)
+                .recipientEmail(notificationRecipient(appointment))
+                .recipientPhone(normalizeSriLankanPhone(appointment.getContactNumber()))
                 .subject(subject)
                 .message(message)
                 .build();
 
         notificationServiceClient.sendNotification(request);
+    }
+
+    private String buildScheduledAppointmentMessage(Appointment appointment) {
+        String patientName = patientName(appointment);
+        String doctorLabel = doctorLabel(appointment);
+        return "Dear " + patientName + ", your appointment with " + doctorLabel +
+                " has been successfully scheduled for " + formatAppointmentDateTime(appointment) + ".";
+    }
+
+    private String patientName(Appointment appointment) {
+        if (appointment.getPatientName() != null && !appointment.getPatientName().isBlank()) {
+            return appointment.getPatientName().trim();
+        }
+        return "Patient";
+    }
+
+    private String doctorLabel(Appointment appointment) {
+        return "Dr. " + appointment.getDoctorId();
+    }
+
+    private String formatAppointmentDateTime(Appointment appointment) {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("MMMM d, yyyy");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+        return appointment.getAppointmentDate().format(dateFormatter) + " at " + appointment.getStartTime().format(timeFormatter);
+    }
+
+    private String normalizeContactEmail(String requestedEmail, String fallbackEmail) {
+        if (requestedEmail == null || requestedEmail.isBlank()) {
+            return fallbackEmail;
+        }
+        return requestedEmail.trim();
+    }
+
+    private String resolvePatientEmail(AppointmentCreateRequest request) {
+        if (SecurityUtils.hasRole("PATIENT")) {
+            return SecurityUtils.requireCurrentUserEmail();
+        }
+        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            return request.getEmail().trim();
+        }
+        return "guest-" + UUID.randomUUID().toString().substring(0, 8) + "@ayubo.local";
+    }
+
+    private String notificationRecipient(Appointment appointment) {
+        if (appointment.getContactEmail() != null && !appointment.getContactEmail().isBlank()) {
+            return appointment.getContactEmail();
+        }
+        return appointment.getPatientEmail();
+    }
+
+    /**
+     * Normalizes common Sri Lankan formats to E.164 required by SMS providers:
+     * - 07XXXXXXXX -> +947XXXXXXXX
+     * - 94XXXXXXXXX -> +94XXXXXXXXX
+     * - +94XXXXXXXXX -> +94XXXXXXXXX
+     */
+    private String normalizeSriLankanPhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return null;
+        }
+
+        String cleaned = rawPhone.replaceAll("[^\\d+]", "");
+        if (cleaned.startsWith("+94")) {
+            return cleaned;
+        }
+
+        if (cleaned.startsWith("94")) {
+            return "+" + cleaned;
+        }
+
+        if (cleaned.startsWith("0") && cleaned.length() == 10) {
+            return "+94" + cleaned.substring(1);
+        }
+
+        // Fallback: return original cleaned string so existing non-SL formats still pass through.
+        return cleaned;
     }
 }

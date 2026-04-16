@@ -23,11 +23,13 @@ spring:
       mode: never
 
   datasource:
-    url: jdbc:mysql://localhost:3306/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/ayubo_appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password: 1234
 
   jpa:
+    defer-datasource-initialization: true
     hibernate:
       ddl-auto: update
     show-sql: true
@@ -36,8 +38,14 @@ spring:
         format_sql: true
 
 services:
-  notification:
+  auth:
     base-url: http://localhost:8085
+    fallback-base-url: http://host.docker.internal:8085
+  notification:
+    base-url: http://localhost:8086
+
+app:
+  frontend-base-url: http://localhost:5173
 
 springdoc:
   api-docs:

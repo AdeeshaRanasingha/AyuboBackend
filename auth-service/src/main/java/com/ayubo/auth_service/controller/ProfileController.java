@@ -37,6 +37,7 @@ public class ProfileController {
             MedicalProvider provider = optionalProvider.get();
 
             Map<String, String> profileData = new HashMap<>();
+            profileData.put("id", String.valueOf(provider.getId()));
             profileData.put("firstName", provider.getFirstName());
             profileData.put("lastName", provider.getLastName());
             profileData.put("email", provider.getEmail());
@@ -140,6 +141,10 @@ public class ProfileController {
             doctor.put("specialty", provider.getSpecialty());
             doctor.put("hospitalName", provider.getHospitalName());
             doctor.put("bio", provider.getBio());
+            doctor.put("medicalLicenseNumber", provider.getMedicalLicenseNumber());
+            doctor.put("qualifications", provider.getQualifications());
+            doctor.put("yearsOfExperience", provider.getYearsOfExperience());
+            doctor.put("consultationFee", provider.getConsultationFee());
             doctor.put("profileImage", provider.getProfileImage());
             directory.add(doctor);
         }
