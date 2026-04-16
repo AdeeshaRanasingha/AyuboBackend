@@ -21,6 +21,7 @@ import com.healthcare.appointmentservice.security.SecurityUtils;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -45,11 +46,15 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentSecurityProperties appointmentSecurityProperties;
     private final DoctorScheduleSlotClient doctorScheduleSlotClient;
     private final AuthProviderDirectoryClient authProviderDirectoryClient;
+    private final JdbcTemplate jdbcTemplate;
     @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
 
     @Value("${app.payment-link:${app.frontend-base-url:http://localhost:5173}/patient-dashboard}")
     private String paymentLink;
+
+    @Value("${app.auth-schedule-db-name:ayubo_auth_db}")
+    private String authScheduleDbName;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
@@ -100,7 +105,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .reason(request.getReason())
                 .noteOrAddress(request.getNoteOrAddress())
                 .onGoingNumber(Boolean.TRUE.equals(request.getOnGoingNumber()))
-                .slotId(request.getSlotId())
+                .slotId(resolveSlotId(request.getDoctorId(), request.getAppointmentDate(), request.getStartTime(), request.getSlotId()))
                 .status(AppointmentStatus.PENDING_PAYMENT)
                 .paymentStatus("PENDING")
                 .build();
@@ -443,6 +448,29 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
         }
         throw new BadRequestException("Selected slot is not available for the chosen date");
+    }
+
+    private Long resolveSlotId(Long doctorId, LocalDate day, LocalTime startTime, Long requestedSlotId) {
+        if (requestedSlotId != null) {
+            return requestedSlotId;
+        }
+        String tableName = authScheduleDbName + ".doctor_schedule_slots";
+        String sql = "SELECT id FROM " + tableName + " " +
+                "WHERE provider_id = ? " +
+                "AND (slot_date = ? OR date = ?) " +
+                "AND (start_time = ? OR start_time = CONCAT(?, ':00')) " +
+                "ORDER BY id DESC LIMIT 1";
+        String normalizedTime = normalizeSlotTimeKey(startTime.toString());
+        List<Long> ids = jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> rs.getLong("id"),
+                doctorId,
+                day,
+                day.toString(),
+                normalizedTime,
+                normalizedTime
+        );
+        return ids.isEmpty() ? null : ids.get(0);
     }
 
     private LocalDate parseSlotDate(String raw) {
