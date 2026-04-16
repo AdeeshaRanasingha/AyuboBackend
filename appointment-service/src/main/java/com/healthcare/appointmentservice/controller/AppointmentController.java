@@ -39,8 +39,8 @@ public class AppointmentController {
 
     @GetMapping("/doctor/{doctorId}/available-slots")
     public ApiResponse<List<String>> getAvailableSlots(
-            @PathVariable Long doctorId,
-            @RequestParam String date,
+            @PathVariable("doctorId") Long doctorId,
+            @RequestParam("date") String date,
             @RequestParam(name = "month", required = false) Boolean month,
             @RequestParam(name = "scope", required = false) String scope
     ) {
@@ -54,7 +54,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/doctor/{doctorId}")
-    public ApiResponse<List<AppointmentResponse>> getAppointmentsByDoctor(@PathVariable Long doctorId) {
+    public ApiResponse<List<AppointmentResponse>> getAppointmentsByDoctor(@PathVariable("doctorId") Long doctorId) {
         return ApiResponse.<List<AppointmentResponse>>builder()
                 .success(true)
                 .message("Doctor appointments fetched successfully")
@@ -63,7 +63,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<AppointmentResponse> getAppointmentById(@PathVariable Long id) {
+    public ApiResponse<AppointmentResponse> getAppointmentById(@PathVariable("id") Long id) {
         return ApiResponse.<AppointmentResponse>builder()
                 .success(true)
                 .message("Appointment fetched successfully")
@@ -73,7 +73,7 @@ public class AppointmentController {
 
     @PutMapping("/{id}")
     public ApiResponse<AppointmentResponse> updateAppointment(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody AppointmentUpdateRequest request
     ) {
         return ApiResponse.<AppointmentResponse>builder()
@@ -85,7 +85,7 @@ public class AppointmentController {
 
     @PatchMapping("/{id}/status")
     public ApiResponse<AppointmentResponse> updateStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody StatusUpdateRequest request
     ) {
         return ApiResponse.<AppointmentResponse>builder()
@@ -96,11 +96,8 @@ public class AppointmentController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<String> cancelAppointment(
-            @PathVariable Long id,
-            @RequestParam(required = false) String reason
-    ) {
-        appointmentService.cancelAppointment(id, reason);
+    public ApiResponse<String> cancelAppointment(@PathVariable("id") Long id) {
+        appointmentService.cancelAppointment(id);
         return ApiResponse.<String>builder()
                 .success(true)
                 .message("Appointment cancelled successfully")

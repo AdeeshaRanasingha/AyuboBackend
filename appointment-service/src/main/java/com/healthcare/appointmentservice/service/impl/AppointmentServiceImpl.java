@@ -27,6 +27,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,13 +84,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .endTime(request.getEndTime())
                 .reason(request.getReason())
                 .noteOrAddress(request.getNoteOrAddress())
-                .noShowRefund(Boolean.TRUE.equals(request.getNoShowRefund()))
                 .onGoingNumber(Boolean.TRUE.equals(request.getOnGoingNumber()))
                 .status(AppointmentStatus.PENDING_PAYMENT)
                 .paymentStatus("PENDING")
-                .notes("Appointment created successfully")
-                .cancelReason(null)
-                .rescheduleCount(0)
                 .build();
 
         Appointment saved = appointmentRepository.save(appointment);
@@ -113,7 +110,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointmentRepository.findByPatientEmailIgnoreCase(email)
                 .stream()
                 .map(this::mapToResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -126,7 +123,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointmentRepository.findByDoctorId(doctorId)
                 .stream()
                 .map(this::mapToResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -204,9 +201,6 @@ public class AppointmentServiceImpl implements AppointmentService {
             appointment.setNoteOrAddress(request.getNoteOrAddress());
         }
 
-        if (request.getNoShowRefund() != null) {
-            appointment.setNoShowRefund(request.getNoShowRefund());
-        }
 
         if (request.getOnGoingNumber() != null) {
             appointment.setOnGoingNumber(request.getOnGoingNumber());
@@ -214,10 +208,6 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         if (scheduleChanged) {
             appointment.setStatus(AppointmentStatus.RESCHEDULED);
-            appointment.setRescheduleCount(appointment.getRescheduleCount() + 1);
-            appointment.setNotes("Appointment rescheduled");
-        } else {
-            appointment.setNotes("Appointment details updated");
         }
 
         Appointment updated = appointmentRepository.save(appointment);
@@ -259,7 +249,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         validateStatusTransition(appointment.getStatus(), newStatus);
 
         appointment.setStatus(newStatus);
-        appointment.setNotes(request.getNotes());
+
 
         Appointment updated = appointmentRepository.save(appointment);
 
@@ -283,7 +273,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
-    public void cancelAppointment(Long id, String cancelReason) {
+    public void cancelAppointment(Long id) {
         Appointment appointment = findAppointmentById(id);
         assertCanModifyAppointmentAsPatientOrProvider(appointment);
 
@@ -292,8 +282,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointment.setCancelReason(cancelReason != null ? cancelReason : "Cancelled by user");
-        appointment.setNotes("Appointment cancelled");
+
 
         appointmentRepository.save(appointment);
 
@@ -334,7 +323,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         List<String> combined = new ArrayList<>();
         for (LocalDate d = monthStart; !d.isAfter(monthEnd); d = d.plusDays(1)) {
-            Map<String, Long> bookedForDay = bookedByDay.getOrDefault(d, Map.of());
+            Map<String, Long> bookedForDay = bookedByDay.getOrDefault(d, Collections.emptyMap());
             for (String time : buildAvailableSlotTimesForDay(doctorId, d, bookedForDay)) {
                 combined.add(d + " " + time);
             }
@@ -370,7 +359,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, day.toString());
         Map<String, Integer> capacityByStart = new LinkedHashMap<>();
         for (AuthScheduleSlotRow row : scheduledRows) {
-            if (row.startTime() == null || row.startTime().isBlank()) {
+            if (row.startTime() == null || row.startTime().trim().isEmpty()) {
                 continue;
             }
             String slotKey = normalizeSlotTimeKey(row.startTime());
@@ -379,14 +368,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         if (capacityByStart.isEmpty()) {
-            return List.of();
+            return Collections.emptyList();
         }
 
         return capacityByStart.entrySet().stream()
                 .filter(e -> bookedCountBySlot.getOrDefault(e.getKey(), 0L) < e.getValue())
                 .map(Map.Entry::getKey)
                 .sorted()
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private static String normalizeSlotTimeKey(String raw) {
@@ -395,7 +384,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private LocalDate parseSlotDate(String raw) {
-        if (raw == null || raw.isBlank()) {
+        if (raw == null || raw.trim().isEmpty()) {
             throw new BadRequestException("date is required");
         }
         String trimmed = raw.trim();
@@ -499,14 +488,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .endTime(appointment.getEndTime())
                 .reason(appointment.getReason())
                 .noteOrAddress(appointment.getNoteOrAddress())
-                .noShowRefund(appointment.getNoShowRefund())
                 .onGoingNumber(appointment.getOnGoingNumber())
                 .status(appointment.getStatus().name())
                 .paymentStatus(appointment.getPaymentStatus())
-                .totalPrice(appointment.getTotalPrice())
-                .notes(appointment.getNotes())
-                .cancelReason(appointment.getCancelReason())
-                .rescheduleCount(appointment.getRescheduleCount())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
                 .build();
@@ -558,7 +542,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private String patientName(Appointment appointment) {
-        if (appointment.getPatientName() != null && !appointment.getPatientName().isBlank()) {
+        if (appointment.getPatientName() != null && !appointment.getPatientName().trim().isEmpty()) {
             return appointment.getPatientName().trim();
         }
         return "Patient";
@@ -575,7 +559,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private String normalizeContactEmail(String requestedEmail, String fallbackEmail) {
-        if (requestedEmail == null || requestedEmail.isBlank()) {
+        if (requestedEmail == null || requestedEmail.trim().isEmpty()) {
             return fallbackEmail;
         }
         return requestedEmail.trim();
@@ -585,14 +569,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (SecurityUtils.hasRole("PATIENT")) {
             return SecurityUtils.requireCurrentUserEmail();
         }
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
             return request.getEmail().trim();
         }
         return "guest-" + UUID.randomUUID().toString().substring(0, 8) + "@ayubo.local";
     }
 
     private String notificationRecipient(Appointment appointment) {
-        if (appointment.getContactEmail() != null && !appointment.getContactEmail().isBlank()) {
+        if (appointment.getContactEmail() != null && !appointment.getContactEmail().trim().isEmpty()) {
             return appointment.getContactEmail();
         }
         return appointment.getPatientEmail();
@@ -605,7 +589,7 @@ public class AppointmentServiceImpl implements AppointmentService {
      * - +94XXXXXXXXX -> +94XXXXXXXXX
      */
     private String normalizeSriLankanPhone(String rawPhone) {
-        if (rawPhone == null || rawPhone.isBlank()) {
+        if (rawPhone == null || rawPhone.trim().isEmpty()) {
             return null;
         }
 

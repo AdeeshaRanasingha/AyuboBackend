@@ -31,14 +31,9 @@ public class AppointmentResponse {
     private LocalTime endTime;
     private String reason;
     private String noteOrAddress;
-    private Boolean noShowRefund;
     private Boolean onGoingNumber;
     private String status;
     private String paymentStatus;
-    private BigDecimal totalPrice;
-    private String notes;
-    private String cancelReason;
-    private Integer rescheduleCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

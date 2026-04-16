@@ -22,7 +22,7 @@ public class AuthProviderDirectoryClient {
     private static final Logger log = LoggerFactory.getLogger(AuthProviderDirectoryClient.class);
 
     private static final ParameterizedTypeReference<List<Map<String, Object>>> DIRECTORY_TYPE =
-            new ParameterizedTypeReference<>() {};
+            new ParameterizedTypeReference<List<Map<String, Object>>>() {};
 
     private final RestClient authRestClient;
     private final RestClient authFallbackRestClient;
@@ -42,7 +42,7 @@ public class AuthProviderDirectoryClient {
     }
 
     public Optional<Long> findProviderIdByEmail(String email) {
-        if (email == null || email.isBlank()) {
+        if (email == null || email.trim().isEmpty()) {
             return Optional.empty();
         }
         try {
@@ -89,10 +89,10 @@ public class AuthProviderDirectoryClient {
     }
 
     private boolean shouldTryFallback() {
-        if (authFallbackBaseUrl == null || authFallbackBaseUrl.isBlank()) {
+        if (authFallbackBaseUrl == null || authFallbackBaseUrl.trim().isEmpty()) {
             return false;
         }
-        if (authBaseUrl == null || authBaseUrl.isBlank()) {
+        if (authBaseUrl == null || authBaseUrl.trim().isEmpty()) {
             return true;
         }
         return !authBaseUrl.trim().equalsIgnoreCase(authFallbackBaseUrl.trim());
@@ -102,7 +102,8 @@ public class AuthProviderDirectoryClient {
         if (id == null) {
             return Optional.empty();
         }
-        if (id instanceof Number n) {
+        if (id instanceof Number) {
+            Number n = (Number) id;
             return Optional.of(n.longValue());
         }
         try {

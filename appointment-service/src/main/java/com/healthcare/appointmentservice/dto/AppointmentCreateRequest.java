@@ -60,10 +60,5 @@ public class AppointmentCreateRequest {
     @Size(max = 255, message = "noteOrAddress must not exceed 255 characters")
     private String noteOrAddress;
 
-    private Boolean noShowRefund;
-
     private Boolean onGoingNumber;
-
-    /** Optional; total price in LKR (consultation + extras). */
-    private BigDecimal totalPrice;
 }
