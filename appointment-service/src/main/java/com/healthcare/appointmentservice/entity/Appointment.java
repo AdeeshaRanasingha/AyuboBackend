@@ -12,15 +12,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
-@Table(
-        name = "appoinment",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_doctor_date_starttime",
-                        columnNames = {"doctor_id", "appointment_date", "start_time"}
-                )
-        }
-)
+@Table(name = "appoinment")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -69,6 +61,9 @@ public class Appointment {
 
     @Column(name = "doctor_id", nullable = false)
     private Long doctorId;
+
+    @Column(name = "slot_id")
+    private Long slotId;
 
     @Column(name = "specialty", length = 100)
     private String specialty;

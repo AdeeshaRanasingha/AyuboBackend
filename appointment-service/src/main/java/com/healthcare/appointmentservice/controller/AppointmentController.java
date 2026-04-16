@@ -5,12 +5,15 @@ import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
+import com.healthcare.appointmentservice.dto.SlotStatusResponse;
+import com.healthcare.appointmentservice.client.AuthProviderDirectoryClient;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -18,6 +21,20 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final AuthProviderDirectoryClient authProviderDirectoryClient;
+
+    /**
+     * Proxy endpoint for the frontend doctor directory dropdowns.
+     * Frontend calls /api/appointments/providers via the API gateway.
+     */
+    @GetMapping("/providers")
+    public ApiResponse<List<Map<String, Object>>> getProviderDirectory() {
+        return ApiResponse.<List<Map<String, Object>>>builder()
+                .success(true)
+                .message("Provider directory fetched successfully")
+                .data(authProviderDirectoryClient.fetchProviderDirectory())
+                .build();
+    }
 
     @PostMapping
     public ApiResponse<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentCreateRequest request) {
@@ -38,7 +55,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/doctor/{doctorId}/available-slots")
-    public ApiResponse<List<String>> getAvailableSlots(
+    public ApiResponse<List<SlotStatusResponse>> getAvailableSlots(
             @PathVariable("doctorId") Long doctorId,
             @RequestParam("date") String date,
             @RequestParam(name = "month", required = false) Boolean month,
@@ -46,7 +63,7 @@ public class AppointmentController {
     ) {
         boolean forCurrentMonth = Boolean.TRUE.equals(month)
                 || (scope != null && "month".equalsIgnoreCase(scope.trim()));
-        return ApiResponse.<List<String>>builder()
+        return ApiResponse.<List<SlotStatusResponse>>builder()
                 .success(true)
                 .message("Available slots fetched successfully")
                 .data(appointmentService.getAvailableSlots(doctorId, date, forCurrentMonth))

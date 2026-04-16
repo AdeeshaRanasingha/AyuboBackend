@@ -4,6 +4,7 @@ import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
+import com.healthcare.appointmentservice.dto.SlotStatusResponse;
 
 import java.util.List;
 
@@ -23,5 +24,5 @@ public interface AppointmentService {
 
     void cancelAppointment(Long id);
 
-    List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
+    List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
 }

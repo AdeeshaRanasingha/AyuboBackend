@@ -81,6 +81,25 @@ public class AuthProviderDirectoryClient {
         return Optional.empty();
     }
 
+    public List<Map<String, Object>> fetchProviderDirectory() {
+        try {
+            List<Map<String, Object>> body = fetchDirectory(authRestClient);
+            return body != null ? body : List.of();
+        } catch (RestClientException ex) {
+            if (shouldTryFallback()) {
+                try {
+                    List<Map<String, Object>> fallback = fetchDirectory(authFallbackRestClient);
+                    return fallback != null ? fallback : List.of();
+                } catch (RestClientException fallbackEx) {
+                    log.warn("Could not load /api/provider/directory: {} (fallback: {})", ex.getMessage(), fallbackEx.getMessage());
+                    return List.of();
+                }
+            }
+            log.warn("Could not load /api/provider/directory: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
     private List<Map<String, Object>> fetchDirectory(RestClient client) {
         return client.get()
                 .uri("/api/provider/directory")

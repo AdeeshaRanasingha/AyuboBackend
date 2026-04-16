@@ -26,6 +26,7 @@ public class AppointmentResponse {
     private String contactEmail;
     private Long doctorId;
     private String specialty;
+    private Long slotId;
     private LocalDate appointmentDate;
     private LocalTime startTime;
     private LocalTime endTime;
