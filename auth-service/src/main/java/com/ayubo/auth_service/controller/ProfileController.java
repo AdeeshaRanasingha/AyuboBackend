@@ -25,9 +25,6 @@ public class ProfileController {
     @Autowired
     private MedicalProviderRepository providerRepository;
 
-    // --- FETCH DOCTOR PROFILE ---
-    // --- FETCH DOCTOR PROFILE ---
-    // --- FETCH DOCTOR PROFILE ---
     @GetMapping("/provider/profile")
     public ResponseEntity<?> getProviderProfile(Authentication authentication) {
         String email = authentication.getName();
@@ -45,17 +42,12 @@ public class ProfileController {
             profileData.put("specialty", provider.getSpecialty());
             profileData.put("medicalLicenseNumber", provider.getMedicalLicenseNumber());
             profileData.put("bio", provider.getBio());
-
             profileData.put("hospitalName", provider.getHospitalName());
             profileData.put("qualifications", provider.getQualifications());
             profileData.put("yearsOfExperience", provider.getYearsOfExperience() != null ? String.valueOf(provider.getYearsOfExperience()) : "0");
             profileData.put("consultationFee", provider.getConsultationFee() != null ? String.valueOf(provider.getConsultationFee()) : "0.0");
             profileData.put("isApproved", String.valueOf(provider.getIsApproved()));
 
-            // =========================================================
-            // THIS IS THE MISSING MAGIC LINE!
-            // It tells Spring Boot to actually send the image to React
-            // =========================================================
             if (provider.getProfileImage() != null) {
                 profileData.put("profileImage", provider.getProfileImage());
             }
@@ -66,18 +58,14 @@ public class ProfileController {
         return ResponseEntity.status(403).body(Map.of("error", "Could not find profile."));
     }
 
-    // --- FETCH PATIENT PROFILE ---
     @GetMapping("/patient/profile")
     public ResponseEntity<?> getPatientProfile(Authentication authentication) {
         String email = authentication.getName();
-
-        // Ask the specific Patient table!
         Optional<Patient> optionalPatient = patientRepository.findByEmail(email);
 
         if (optionalPatient.isPresent()) {
             Patient patient = optionalPatient.get();
 
-            // Build a secure JSON object without the password
             Map<String, Object> profileData = new HashMap<>();
             profileData.put("id", patient.getId());
             profileData.put("firstName", patient.getFirstName());
@@ -91,10 +79,9 @@ public class ProfileController {
             return ResponseEntity.ok(profileData);
         }
 
-        return ResponseEntity.status(403).body("{\"error\": \"Database Error: Could not find you in the Patient directory.\"}");
+        return ResponseEntity.status(403).body(Map.of("error", "Database Error: Could not find you in the Patient directory."));
     }
 
-    // --- UPDATE DOCTOR PROFILE ---
     @PutMapping("/provider/profile")
     public ResponseEntity<?> updateProviderProfile(@RequestBody ProviderProfileRequest request, Authentication authentication) {
         String email = authentication.getName();
@@ -103,7 +90,6 @@ public class ProfileController {
         if (optionalProvider.isPresent()) {
             MedicalProvider provider = optionalProvider.get();
 
-            // Safely update fields if they are provided
             if (request.getFirstName() != null) provider.setFirstName(request.getFirstName());
             if (request.getLastName() != null) provider.setLastName(request.getLastName());
             if (request.getPhone() != null) provider.setPhone(request.getPhone());
@@ -113,14 +99,12 @@ public class ProfileController {
             if (request.getQualifications() != null) provider.setQualifications(request.getQualifications());
             if (request.getYearsOfExperience() != null) provider.setYearsOfExperience(request.getYearsOfExperience());
 
-            // Image handling
             if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
                 provider.setProfileImage(request.getProfileImage());
             }
 
             providerRepository.save(provider);
 
-            // Return valid JSON
             return ResponseEntity.ok(Map.of("message", "Professional profile updated successfully!"));
         }
 
@@ -152,7 +136,6 @@ public class ProfileController {
         return ResponseEntity.ok(directory);
     }
 
-    // --- UPDATE PATIENT PROFILE ---
     @PutMapping("/patient/profile")
     public ResponseEntity<?> updatePatientProfile(@RequestBody PatientProfileRequest request, Authentication authentication) {
         String email = authentication.getName();
@@ -172,9 +155,9 @@ public class ProfileController {
             }
 
             patientRepository.save(patient);
-            return ResponseEntity.ok("{\"message\": \"Profile updated successfully!\"}");
+            return ResponseEntity.ok(Map.of("message", "Profile updated successfully!"));
         }
 
-        return ResponseEntity.status(403).body("{\"error\": \"Database Error: Could not find you in the Patient directory.\"}");
+        return ResponseEntity.status(403).body(Map.of("error", "Database Error: Could not find you in the Patient directory."));
     }
 }

@@ -23,5 +23,5 @@ public interface AppointmentService {
 
     void cancelAppointment(Long id, String cancelReason);
 
-    List<String> getAvailableSlots(Long doctorId, String date);
+    List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
 }

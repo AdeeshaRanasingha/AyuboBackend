@@ -27,6 +27,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
     password:
+    
 
   jpa:
     defer-datasource-initialization: true
@@ -40,8 +41,12 @@ spring:
 services:
   auth:
     base-url: http://localhost:8085
+    fallback-base-url: http://host.docker.internal:8085
   notification:
-    base-url: http://localhost:8085
+    base-url: http://localhost:8086
+
+app:
+  frontend-base-url: http://localhost:5173
 
 springdoc:
   api-docs:

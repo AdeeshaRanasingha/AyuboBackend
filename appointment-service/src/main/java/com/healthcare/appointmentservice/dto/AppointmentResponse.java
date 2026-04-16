@@ -3,6 +3,7 @@ package com.healthcare.appointmentservice.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -34,7 +35,7 @@ public class AppointmentResponse {
     private Boolean onGoingNumber;
     private String status;
     private String paymentStatus;
-    private String meetingLink;
+    private BigDecimal totalPrice;
     private String notes;
     private String cancelReason;
     private Integer rescheduleCount;
