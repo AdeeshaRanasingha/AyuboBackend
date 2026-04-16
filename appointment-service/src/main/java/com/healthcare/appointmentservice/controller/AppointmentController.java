@@ -5,6 +5,8 @@ import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
+import com.healthcare.appointmentservice.dto.SlotStatusResponse;
+import com.healthcare.appointmentservice.client.AuthProviderDirectoryClient;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -22,6 +25,20 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final AuthProviderDirectoryClient authProviderDirectoryClient;
+
+    /**
+     * Proxy endpoint for the frontend doctor directory dropdowns.
+     * Frontend calls /api/appointments/providers via the API gateway.
+     */
+    @GetMapping("/providers")
+    public ApiResponse<List<Map<String, Object>>> getProviderDirectory() {
+        return ApiResponse.<List<Map<String, Object>>>builder()
+                .success(true)
+                .message("Provider directory fetched successfully")
+                .data(authProviderDirectoryClient.fetchProviderDirectory())
+                .build();
+    }
 
     @PostMapping
     public ApiResponse<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentCreateRequest request) {
@@ -57,15 +74,15 @@ public class AppointmentController {
     }
 
     @GetMapping("/doctor/{doctorId}/available-slots")
-    public ApiResponse<List<String>> getAvailableSlots(
-            @PathVariable Long doctorId,
-            @RequestParam String date,
+    public ApiResponse<List<SlotStatusResponse>> getAvailableSlots(
+            @PathVariable("doctorId") Long doctorId,
+            @RequestParam("date") String date,
             @RequestParam(name = "month", required = false) Boolean month,
             @RequestParam(name = "scope", required = false) String scope
     ) {
         boolean forCurrentMonth = Boolean.TRUE.equals(month)
                 || (scope != null && "month".equalsIgnoreCase(scope.trim()));
-        return ApiResponse.<List<String>>builder()
+        return ApiResponse.<List<SlotStatusResponse>>builder()
                 .success(true)
                 .message("Available slots fetched successfully")
                 .data(appointmentService.getAvailableSlots(doctorId, date, forCurrentMonth))
@@ -73,7 +90,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/doctor/{doctorId}")
-    public ApiResponse<List<AppointmentResponse>> getAppointmentsByDoctor(@PathVariable Long doctorId) {
+    public ApiResponse<List<AppointmentResponse>> getAppointmentsByDoctor(@PathVariable("doctorId") Long doctorId) {
         return ApiResponse.<List<AppointmentResponse>>builder()
                 .success(true)
                 .message("Doctor appointments fetched successfully")
@@ -82,7 +99,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<AppointmentResponse> getAppointmentById(@PathVariable Long id) {
+    public ApiResponse<AppointmentResponse> getAppointmentById(@PathVariable("id") Long id) {
         return ApiResponse.<AppointmentResponse>builder()
                 .success(true)
                 .message("Appointment fetched successfully")
@@ -92,7 +109,7 @@ public class AppointmentController {
 
     @PutMapping("/{id}")
     public ApiResponse<AppointmentResponse> updateAppointment(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody AppointmentUpdateRequest request
     ) {
         return ApiResponse.<AppointmentResponse>builder()
@@ -104,7 +121,7 @@ public class AppointmentController {
 
     @PatchMapping("/{id}/status")
     public ApiResponse<AppointmentResponse> updateStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody StatusUpdateRequest request
     ) {
         return ApiResponse.<AppointmentResponse>builder()
@@ -115,11 +132,8 @@ public class AppointmentController {
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<String> cancelAppointment(
-            @PathVariable Long id,
-            @RequestParam(required = false) String reason
-    ) {
-        appointmentService.cancelAppointment(id, reason);
+    public ApiResponse<String> cancelAppointment(@PathVariable("id") Long id) {
+        appointmentService.cancelAppointment(id);
         return ApiResponse.<String>builder()
                 .success(true)
                 .message("Appointment cancelled successfully")

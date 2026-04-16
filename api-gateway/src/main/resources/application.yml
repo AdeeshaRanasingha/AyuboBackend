@@ -49,4 +49,4 @@ spring:
         - id: appointment-service
           uri: http://localhost:8082
           predicates:
-            - Path=/api/appointments/**
+            - Path=/api/telemedicine/dev/issue-token, /api/appointments/**

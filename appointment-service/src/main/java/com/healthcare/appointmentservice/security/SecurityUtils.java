@@ -12,7 +12,7 @@ public final class SecurityUtils {
 
     public static String requireCurrentUserEmail() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getName() == null || auth.getName().isBlank()) {
+        if (auth == null || !auth.isAuthenticated() || auth.getName() == null || auth.getName().trim().isEmpty()) {
             throw new ForbiddenException("Authentication required");
         }
         return auth.getName();
