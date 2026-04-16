@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -381,6 +382,11 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
         }
         return combined;
+    }
+
+    @Override
+    public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
+        return null;
     }
 
     /**
