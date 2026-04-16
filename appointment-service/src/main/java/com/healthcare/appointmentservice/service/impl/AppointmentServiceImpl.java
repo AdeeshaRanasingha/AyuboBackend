@@ -51,6 +51,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentSecurityProperties appointmentSecurityProperties;
     private final DoctorScheduleSlotClient doctorScheduleSlotClient;
     private final AuthProviderDirectoryClient authProviderDirectoryClient;
+
     @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
 
@@ -307,10 +308,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment updated = appointmentRepository.save(appointment);
 
         if (newStatus == AppointmentStatus.CONFIRMED) {
-            // Doctor approval flow: notify patient to proceed with payment from dashboard.
             appointment.setPaymentStatus("PENDING");
             updated = appointmentRepository.save(appointment);
-
             sendAppointmentConfirmedNotification(updated);
         } else if (newStatus == AppointmentStatus.CANCELLED || newStatus == AppointmentStatus.REJECTED) {
             sendAppointmentCancelledNotification(updated);
@@ -386,10 +385,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         return combined;
     }
 
-    /**
-     * Returns start times (HH:mm) still open for booking on {@code day}, using auth schedule capacity
-     * minus non-cancelled appointments for that day.
-     */
     private List<String> buildAvailableSlotTimesForDay(
             long doctorId,
             LocalDate day,
@@ -521,6 +516,9 @@ public class AppointmentServiceImpl implements AppointmentService {
         return "APT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
 
+    // ==========================================
+    // UPDATED MAPPER - ADDS PRESCRIPTION URL
+    // ==========================================
     private AppointmentResponse mapToResponse(Appointment appointment) {
         return AppointmentResponse.builder()
                 .id(appointment.getId())
@@ -552,6 +550,10 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .rescheduleCount(appointment.getRescheduleCount())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
+
+                // ✅ This makes sure React receives the URL!
+                .prescriptionUrl(appointment.getPrescriptionUrl())
+
                 .build();
     }
 
@@ -641,12 +643,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointment.getPatientEmail();
     }
 
-    /**
-     * Normalizes common Sri Lankan formats to E.164 required by SMS providers:
-     * - 07XXXXXXXX -> +947XXXXXXXX
-     * - 94XXXXXXXXX -> +94XXXXXXXXX
-     * - +94XXXXXXXXX -> +94XXXXXXXXX
-     */
     private String normalizeSriLankanPhone(String rawPhone) {
         if (rawPhone == null || rawPhone.isBlank()) {
             return null;
@@ -665,7 +661,6 @@ public class AppointmentServiceImpl implements AppointmentService {
             return "+94" + cleaned.substring(1);
         }
 
-        // Fallback: return original cleaned string so existing non-SL formats still pass through.
         return cleaned;
     }
 }
