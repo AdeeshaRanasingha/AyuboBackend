@@ -54,16 +54,13 @@ public class AppointmentCreateRequest {
     @NotNull(message = "endTime is required")
     private LocalTime endTime;
 
+    private Long slotId;
+
     @Size(max = 255, message = "reason must not exceed 255 characters")
     private String reason;
 
     @Size(max = 255, message = "noteOrAddress must not exceed 255 characters")
     private String noteOrAddress;
 
-    private Boolean noShowRefund;
-
     private Boolean onGoingNumber;
-
-    /** Optional; total price in LKR (consultation + extras). */
-    private BigDecimal totalPrice;
 }

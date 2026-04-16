@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -36,7 +37,7 @@ public class DevTokenController {
         return ApiResponse.<Map<String, String>>builder()
                 .success(true)
                 .message("Use Authorization: Bearer <token> in Postman")
-                .data(Map.of("token", token))
+                .data(Collections.singletonMap("token", token))
                 .build();
     }
 }

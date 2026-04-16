@@ -12,15 +12,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
-@Table(
-        name = "appoinment",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_doctor_date_starttime",
-                        columnNames = {"doctor_id", "appointment_date", "start_time"}
-                )
-        }
-)
+@Table(name = "appoinment")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -70,6 +62,9 @@ public class Appointment {
     @Column(name = "doctor_id", nullable = false)
     private Long doctorId;
 
+    @Column(name = "slot_id")
+    private Long slotId;
+
     @Column(name = "specialty", length = 100)
     private String specialty;
 
@@ -88,9 +83,6 @@ public class Appointment {
     @Column(name = "note_or_address", length = 255)
     private String noteOrAddress;
 
-    @Column(name = "no_show_refund")
-    private Boolean noShowRefund;
-
     @Column(name = "on_going_number")
     private Boolean onGoingNumber;
 
@@ -101,36 +93,30 @@ public class Appointment {
     @Column(name = "payment_status", length = 50)
     private String paymentStatus;
 
-    /** Total payable amount for this booking (e.g. consultation + add-ons), LKR. */
-    @Column(name = "total_price", precision = 12, scale = 2)
-    private BigDecimal totalPrice;
-
-    @Column(name = "notes", length = 255)
-    private String notes;
-
-    @Column(name = "cancel_reason", length = 255)
-    private String cancelReason;
-
-    @Column(name = "reschedule_count")
-    private Integer rescheduleCount;
-
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // Add this near your other fields (like noteOrAddress)
+    @Column(name = "prescription_url")
+    private String prescriptionUrl;
+
+    // Add the Getter and Setter at the bottom
+    public String getPrescriptionUrl() {
+        return prescriptionUrl;
+    }
+
+    public void setPrescriptionUrl(String prescriptionUrl) {
+        this.prescriptionUrl = prescriptionUrl;
+    }
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        if (this.rescheduleCount == null) {
-            this.rescheduleCount = 0;
-        }
-        if (this.noShowRefund == null) {
-            this.noShowRefund = false;
-        }
         if (this.onGoingNumber == null) {
             this.onGoingNumber = false;
         }
