@@ -2,6 +2,7 @@ package com.ayubo.payment_service.dto;
 
 public class PaymentRequest {
 
+    private Long appointmentId;
     private Double amount;
     private String patientEmail;
 
@@ -9,6 +10,14 @@ public class PaymentRequest {
     public PaymentRequest() {}
 
     // --- Getters and Setters ---
+    public Long getAppointmentId() {
+        return appointmentId;
+    }
+
+    public void setAppointmentId(Long appointmentId) {
+        this.appointmentId = appointmentId;
+    }
+
     public Double getAmount() {
         return amount;
     }

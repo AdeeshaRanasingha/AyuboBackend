@@ -12,6 +12,7 @@ public class TransactionRecord {
     private Long id;
 
     private String patientEmail; // To know who paid
+    private Long appointmentId;
     private String stripeSessionId; // Stripe's unique ID for the checkout
     private Double amount;
     private String currency;
@@ -42,6 +43,14 @@ public class TransactionRecord {
 
     public void setPatientEmail(String patientEmail) {
         this.patientEmail = patientEmail;
+    }
+
+    public Long getAppointmentId() {
+        return appointmentId;
+    }
+
+    public void setAppointmentId(Long appointmentId) {
+        this.appointmentId = appointmentId;
     }
 
     public String getStripeSessionId() {

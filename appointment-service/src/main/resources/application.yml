@@ -42,6 +42,8 @@ services:
 
 app:
   frontend-base-url: http://localhost:5173
+  integration:
+    internal-token: change-me-dev-internal-token
 
 springdoc:
   api-docs:

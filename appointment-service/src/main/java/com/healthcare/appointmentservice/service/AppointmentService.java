@@ -21,6 +21,8 @@ public interface AppointmentService {
 
     AppointmentResponse updateStatus(Long id, StatusUpdateRequest request);
 
+    AppointmentResponse markPaymentAsPaid(Long id);
+
     void cancelAppointment(Long id, String cancelReason);
 
     List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);

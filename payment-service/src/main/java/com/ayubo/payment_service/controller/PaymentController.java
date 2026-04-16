@@ -8,9 +8,13 @@ import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.ayubo.payment_service.dto.PaymentRequest;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +26,12 @@ public class PaymentController {
     @Value("${stripe.api.key}")
     private String stripeApiKey;
 
+    @Value("${services.appointment.base-url:http://localhost:8082}")
+    private String appointmentServiceBaseUrl;
+
+    @Value("${services.integration.internal-token:}")
+    private String internalToken;
+
     @Autowired
     private TransactionRepository transactionRepository;
 
@@ -29,6 +39,10 @@ public class PaymentController {
     public ResponseEntity<?> createCheckoutSession(@RequestBody PaymentRequest request) {
         // Sets the Stripe key for the checkout
         Stripe.apiKey = stripeApiKey;
+
+        if (request.getAppointmentId() == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "appointmentId is required"));
+        }
 
         try {
             SessionCreateParams params = SessionCreateParams.builder()
@@ -56,6 +70,7 @@ public class PaymentController {
             TransactionRecord newTx = new TransactionRecord();
             newTx.setAmount(2500.00);
             newTx.setPatientEmail(request.getPatientEmail());
+            newTx.setAppointmentId(request.getAppointmentId());
 
             newTx.setCurrency("LKR");
             newTx.setStatus("PENDING");
@@ -100,10 +115,27 @@ public class PaymentController {
             // 4. Save the updated row back to MySQL
             transactionRepository.save(tx);
 
+            if (tx.getAppointmentId() != null) {
+                markAppointmentAsPaid(tx.getAppointmentId());
+            }
+
             return ResponseEntity.ok(Map.of("message", "Payment verified and updated to PAID!"));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error verifying payment: " + e.getMessage());
         }
+    }
+
+    private void markAppointmentAsPaid(Long appointmentId) {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Internal-Token", internalToken);
+
+        restTemplate.exchange(
+                appointmentServiceBaseUrl + "/api/appointments/" + appointmentId + "/payment-status/paid",
+                HttpMethod.PATCH,
+                new HttpEntity<>(null, headers),
+                String.class
+        );
     }
 }

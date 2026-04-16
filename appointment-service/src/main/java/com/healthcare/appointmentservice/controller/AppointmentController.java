@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
@@ -22,6 +23,9 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+
+    @Value("${app.integration.internal-token:}")
+    private String internalToken;
 
     @PostMapping
     public ApiResponse<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentCreateRequest request) {
@@ -111,6 +115,22 @@ public class AppointmentController {
                 .success(true)
                 .message("Appointment status updated successfully")
                 .data(appointmentService.updateStatus(id, request))
+                .build();
+    }
+
+    @PatchMapping("/{id}/payment-status/paid")
+    public ApiResponse<AppointmentResponse> markPaymentAsPaid(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-Internal-Token", required = false) String token
+    ) {
+        if (internalToken == null || internalToken.isBlank() || !internalToken.equals(token)) {
+            throw new com.healthcare.appointmentservice.exception.ForbiddenException("Invalid internal token");
+        }
+
+        return ApiResponse.<AppointmentResponse>builder()
+                .success(true)
+                .message("Appointment payment status updated successfully")
+                .data(appointmentService.markPaymentAsPaid(id))
                 .build();
     }
 

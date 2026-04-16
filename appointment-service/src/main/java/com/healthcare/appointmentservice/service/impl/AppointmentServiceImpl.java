@@ -322,6 +322,14 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
+    public AppointmentResponse markPaymentAsPaid(Long id) {
+        Appointment appointment = findAppointmentById(id);
+        appointment.setPaymentStatus("PAID");
+        Appointment updated = appointmentRepository.save(appointment);
+        return mapToResponse(updated);
+    }
+
+    @Override
     public void cancelAppointment(Long id, String cancelReason) {
         Appointment appointment = findAppointmentById(id);
         assertCanModifyAppointmentAsPatientOrProvider(appointment);

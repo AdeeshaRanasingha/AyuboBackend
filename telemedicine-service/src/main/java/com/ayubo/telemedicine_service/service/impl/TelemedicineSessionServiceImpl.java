@@ -3,6 +3,7 @@ package com.ayubo.telemedicine_service.service.impl;
 import com.ayubo.telemedicine_service.dto.SessionCreateRequest;
 import com.ayubo.telemedicine_service.dto.SessionResponse;
 import com.ayubo.telemedicine_service.dto.SessionStatusUpdateRequest;
+import com.ayubo.telemedicine_service.dto.AppointmentResponse;
 import com.ayubo.telemedicine_service.entity.SessionStatus;
 import com.ayubo.telemedicine_service.entity.TelemedicineSession;
 import com.ayubo.telemedicine_service.exception.BadRequestException;
@@ -10,6 +11,7 @@ import com.ayubo.telemedicine_service.exception.ForbiddenException;
 import com.ayubo.telemedicine_service.exception.ResourceNotFoundException;
 import com.ayubo.telemedicine_service.repository.TelemedicineSessionRepository;
 import com.ayubo.telemedicine_service.security.SecurityUtils;
+import com.ayubo.telemedicine_service.service.AppointmentServiceClient;
 import com.ayubo.telemedicine_service.service.ProviderDoctorResolver;
 import com.ayubo.telemedicine_service.service.TelemedicineSessionService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ import java.util.UUID;
 public class TelemedicineSessionServiceImpl implements TelemedicineSessionService {
 
     private final TelemedicineSessionRepository telemedicineSessionRepository;
+    private final AppointmentServiceClient appointmentServiceClient;
     private final ProviderDoctorResolver providerDoctorResolver;
 
     @Value("${telemedicine.jitsi.base-url}")
@@ -33,29 +36,43 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
 
     @Override
     public SessionResponse createSession(SessionCreateRequest request) {
+        if (!SecurityUtils.hasRole("PROVIDER")) {
+            throw new ForbiddenException("Provider role required");
+        }
+
         telemedicineSessionRepository.findByAppointmentId(request.getAppointmentId()).ifPresent(existing -> {
             throw new BadRequestException("A telemedicine session already exists for this appointment");
         });
 
-        Long doctorId = resolveDoctorIdForCaller(request.getDoctorId());
-        String patientEmail = resolvePatientEmailForCaller(request.getPatientEmail());
+        AppointmentResponse appointment = appointmentServiceClient.getAppointmentById(request.getAppointmentId());
+        if (appointment == null) {
+            throw new ResourceNotFoundException("Appointment not found with id: " + request.getAppointmentId());
+        }
+
+        assertAppointmentIsTelemedicineReady(appointment);
+        assertProviderOwnsAppointment(appointment);
+
+        Long doctorId = appointment.getDoctorId();
+        String patientEmail = appointment.getPatientEmail();
+        String consultationType = normalizeConsultationType(appointment.getAppointmentType());
+        LocalDateTime scheduledAt = buildScheduledAt(appointment);
         String roomName = buildRoomName(request.getAppointmentId(), doctorId);
         String joinUrl = buildJoinUrl(roomName);
 
         TelemedicineSession session = TelemedicineSession.builder()
                 .appointmentId(request.getAppointmentId())
                 .doctorId(doctorId)
-                .patientId(request.getPatientId())
-                .queueEntryId(request.getQueueEntryId())
+                .patientId(appointment.getPatientId())
+                .queueEntryId(null)
                 .patientEmail(patientEmail)
-                .consultationType(normalizeConsultationType(request.getConsultationType()))
+                .consultationType(consultationType)
                 .meetingProvider("JITSI")
                 .roomName(roomName)
                 .doctorJoinUrl(joinUrl)
                 .patientJoinUrl(joinUrl)
                 .status(SessionStatus.SCHEDULED)
-                .scheduledAt(request.getScheduledAt())
-                .notes("Session created")
+                .scheduledAt(scheduledAt)
+                .notes("Session created from confirmed paid appointment")
                 .build();
 
         return mapToResponse(telemedicineSessionRepository.save(session));
@@ -107,6 +124,9 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
 
         if (session.getStatus() != SessionStatus.SCHEDULED) {
             throw new BadRequestException("Only scheduled sessions can be started");
+        }
+        if (session.getScheduledAt() != null && LocalDateTime.now().isBefore(session.getScheduledAt())) {
+            throw new BadRequestException("Session can only be started at or after the scheduled time");
         }
 
         session.setStatus(SessionStatus.ACTIVE);
@@ -167,26 +187,40 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
         }
     }
 
-    private Long resolveDoctorIdForCaller(Long requestedDoctorId) {
-        if (SecurityUtils.hasRole("PROVIDER")) {
-            Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
-                    .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
-            if (!mappedDoctorId.equals(requestedDoctorId)) {
-                throw new ForbiddenException("Provider account cannot create sessions for another doctor");
-            }
-            return mappedDoctorId;
+    private void assertProviderOwnsAppointment(AppointmentResponse appointment) {
+        if (SecurityUtils.hasRole("ADMIN")) {
+            return;
         }
-        return requestedDoctorId;
+        if (!SecurityUtils.hasRole("PROVIDER")) {
+            throw new ForbiddenException("Provider or admin role required");
+        }
+        Long mappedDoctorId = providerDoctorResolver.resolveDoctorId(SecurityUtils.requireCurrentUserEmail())
+                .orElseThrow(() -> new ForbiddenException("No doctor profile mapped for this provider account"));
+        if (!mappedDoctorId.equals(appointment.getDoctorId())) {
+            throw new ForbiddenException("Provider account cannot create a session for another doctor's appointment");
+        }
     }
 
-    private String resolvePatientEmailForCaller(String requestedPatientEmail) {
-        if (SecurityUtils.hasRole("PATIENT")) {
-            return SecurityUtils.requireCurrentUserEmail();
+    private void assertAppointmentIsTelemedicineReady(AppointmentResponse appointment) {
+        if (!"CONFIRMED".equalsIgnoreCase(appointment.getStatus())) {
+            throw new BadRequestException("Only confirmed appointments can create telemedicine sessions");
         }
-        if (requestedPatientEmail == null || requestedPatientEmail.isBlank()) {
-            throw new BadRequestException("patientEmail is required when created by a provider or admin");
+        if (!"PAID".equalsIgnoreCase(appointment.getPaymentStatus())) {
+            throw new BadRequestException("Only paid appointments can create telemedicine sessions");
         }
-        return requestedPatientEmail.trim();
+        if (!isTelemedicineAppointment(appointment.getAppointmentType())) {
+            throw new BadRequestException("Only telemedicine appointments can create telemedicine sessions");
+        }
+    }
+
+    private boolean isTelemedicineAppointment(String consultationType) {
+        if (consultationType == null) {
+            return false;
+        }
+        String normalized = consultationType.trim().toUpperCase(Locale.ROOT);
+        return normalized.contains("VIDEO")
+                || normalized.contains("TELE")
+                || normalized.contains("ONLINE");
     }
 
     private String normalizeConsultationType(String consultationType) {
@@ -194,6 +228,13 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
             return "VIDEO_CONSULTATION";
         }
         return consultationType.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private LocalDateTime buildScheduledAt(AppointmentResponse appointment) {
+        if (appointment.getAppointmentDate() == null || appointment.getStartTime() == null) {
+            return LocalDateTime.now();
+        }
+        return appointment.getAppointmentDate().atTime(appointment.getStartTime());
     }
 
     private String buildRoomName(Long appointmentId, Long doctorId) {
