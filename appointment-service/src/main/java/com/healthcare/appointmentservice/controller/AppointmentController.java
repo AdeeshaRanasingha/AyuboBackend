@@ -40,12 +40,16 @@ public class AppointmentController {
     @GetMapping("/doctor/{doctorId}/available-slots")
     public ApiResponse<List<String>> getAvailableSlots(
             @PathVariable Long doctorId,
-            @RequestParam String date
+            @RequestParam String date,
+            @RequestParam(name = "month", required = false) Boolean month,
+            @RequestParam(name = "scope", required = false) String scope
     ) {
+        boolean forCurrentMonth = Boolean.TRUE.equals(month)
+                || (scope != null && "month".equalsIgnoreCase(scope.trim()));
         return ApiResponse.<List<String>>builder()
                 .success(true)
                 .message("Available slots fetched successfully")
-                .data(appointmentService.getAvailableSlots(doctorId, date))
+                .data(appointmentService.getAvailableSlots(doctorId, date, forCurrentMonth))
                 .build();
     }
 

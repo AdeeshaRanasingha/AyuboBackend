@@ -38,8 +38,14 @@ spring:
         format_sql: true
 
 services:
-  notification:
+  auth:
     base-url: http://localhost:8085
+    fallback-base-url: http://host.docker.internal:8085
+  notification:
+    base-url: http://localhost:8086
+
+app:
+  frontend-base-url: http://localhost:5173
 
 springdoc:
   api-docs:

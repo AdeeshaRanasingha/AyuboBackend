@@ -1,0 +1,24 @@
+# Copy this file to: run-notification.local.ps1
+# Fill in your real credentials. Do not commit run-notification.local.ps1.
+
+$env:NOTIFICATION_EMAIL_ENABLED = "true"
+$env:NOTIFICATION_SMS_ENABLED = "true"
+
+# ---------- Gmail SMTP (use App Password, not your normal Gmail password) ----------
+$env:MAIL_HOST = "smtp.gmail.com"
+$env:MAIL_PORT = "587"
+$env:MAIL_USERNAME = "your_email@gmail.com"
+$env:MAIL_PASSWORD = "your_16_char_app_password"
+$env:NOTIFICATION_EMAIL_FROM = "your_email@gmail.com"
+
+# ---------- Twilio ----------
+$env:TWILIO_ACCOUNT_SID = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+$env:TWILIO_AUTH_TOKEN = "your_auth_token"
+
+# Option A: send with your Twilio phone number
+$env:TWILIO_FROM_NUMBER = "+1xxxxxxxxxx"
+# Option B: OR use Messaging Service from Twilio SMS tutorial (leave FROM empty if you use this)
+$env:TWILIO_MESSAGING_SERVICE_SID = ""
+
+# If you use Messaging Service, you can clear FROM:
+# $env:TWILIO_FROM_NUMBER = ""
