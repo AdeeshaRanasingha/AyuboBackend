@@ -47,6 +47,9 @@ public class SecurityConfig {
                     ).permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/appointments").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/appointments/doctor/*/available-slots").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/appointments/public/*").permitAll();
+                    auth.requestMatchers(HttpMethod.PATCH, "/api/appointments/*/payment-status").permitAll();
+
                     if (devTokenEndpointEnabled) {
                         auth.requestMatchers("/api/dev/issue-token").permitAll();
                     }

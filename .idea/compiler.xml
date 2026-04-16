@@ -2,6 +2,7 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
       <profile name="Maven default annotation processors profile" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
@@ -11,6 +12,7 @@
         <module name="payment-service" />
         <module name="appointment-service" />
         <module name="ai-service" />
+        <module name="notification-service" />
       </profile>
     </annotationProcessing>
   </component>
@@ -20,6 +22,7 @@
       <module name="api-gateway" options="-parameters" />
       <module name="appointment-service" options="-parameters" />
       <module name="auth-service" options="-parameters" />
+      <module name="notification-service" options="-parameters" />
       <module name="payment-service" options="-parameters" />
     </option>
   </component>

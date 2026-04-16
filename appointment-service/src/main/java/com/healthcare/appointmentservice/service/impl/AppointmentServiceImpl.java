@@ -18,6 +18,8 @@ import com.healthcare.appointmentservice.exception.ResourceNotFoundException;
 import com.healthcare.appointmentservice.repository.AppointmentRepository;
 import com.healthcare.appointmentservice.security.SecurityUtils;
 import com.healthcare.appointmentservice.service.AppointmentService;
+import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -624,5 +626,31 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         // Fallback: return original cleaned string so existing non-SL formats still pass through.
         return cleaned;
+    }
+
+    @Override
+    public AppointmentResponse getAppointmentPublic(Long id) {
+        Appointment appointment = findAppointmentById(id);
+        return mapToResponse(appointment);
+    }
+
+    @Override
+    public AppointmentResponse updatePaymentStatus(Long id, PaymentStatusUpdateRequest request) {
+        Appointment appointment = findAppointmentById(id);
+
+        if (request.getPaymentStatus() != null && !request.getPaymentStatus().isBlank()) {
+            appointment.setPaymentStatus(request.getPaymentStatus().trim().toUpperCase());
+        }
+
+        if (request.getTotalPrice() != null) {
+            appointment.setTotalPrice(request.getTotalPrice().setScale(2, java.math.RoundingMode.HALF_UP));
+        }
+
+        if (request.getNotes() != null && !request.getNotes().isBlank()) {
+            appointment.setNotes(request.getNotes().trim());
+        }
+
+        Appointment updated = appointmentRepository.save(appointment);
+        return mapToResponse(updated);
     }
 }

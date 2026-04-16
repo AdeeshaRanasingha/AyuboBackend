@@ -6,6 +6,7 @@ import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
 import com.healthcare.appointmentservice.service.AppointmentService;
+import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -105,6 +106,27 @@ public class AppointmentController {
                 .success(true)
                 .message("Appointment cancelled successfully")
                 .data("Appointment with id " + id + " cancelled")
+                .build();
+    }
+
+    @GetMapping("/public/{id}")
+    public ApiResponse<AppointmentResponse> getAppointmentPublic(@PathVariable Long id) {
+        return ApiResponse.<AppointmentResponse>builder()
+                .success(true)
+                .message("Public appointment fetched successfully")
+                .data(appointmentService.getAppointmentPublic(id))
+                .build();
+    }
+
+    @PatchMapping("/{id}/payment-status")
+    public ApiResponse<AppointmentResponse> updatePaymentStatus(
+            @PathVariable Long id,
+            @RequestBody PaymentStatusUpdateRequest request
+    ) {
+        return ApiResponse.<AppointmentResponse>builder()
+                .success(true)
+                .message("Appointment payment status updated successfully")
+                .data(appointmentService.updatePaymentStatus(id, request))
                 .build();
     }
 }

@@ -2,26 +2,16 @@ package com.ayubo.payment_service.dto;
 
 public class PaymentRequest {
 
-    private Double amount;
-    private String patientEmail;
+    private Long appointmentId;
 
-    // Default constructor (Spring Boot needs this to convert React's JSON)
-    public PaymentRequest() {}
-
-    // --- Getters and Setters ---
-    public Double getAmount() {
-        return amount;
+    public PaymentRequest() {
     }
 
-    public void setAmount(Double amount) {
-        this.amount = amount;
+    public Long getAppointmentId() {
+        return appointmentId;
     }
 
-    public String getPatientEmail() {
-        return patientEmail;
-    }
-
-    public void setPatientEmail(String patientEmail) {
-        this.patientEmail = patientEmail;
+    public void setAppointmentId(Long appointmentId) {
+        this.appointmentId = appointmentId;
     }
 }
