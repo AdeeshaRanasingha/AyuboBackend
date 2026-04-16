@@ -28,27 +28,17 @@ spring:
           predicates:
             - Path=/api/payment/**
 
-        - id: notification-service
-          uri: http://localhost:8086
-          predicates:
-            - Path=/api/notifications/**
-
-           
-        - id: telemedicine-service
-          uri: http://localhost:8087
-          predicates:
-            - Path=/api/telemedicine/**
-
-        - id: telemedicine-dev
-          uri: http://localhost:8087
-
-        
-        - id: appointment-service
+        # SPECIFIC route must go BEFORE the wildcard route
+        - id: appointment-service-token  # <-- Renamed to fix duplicate ID
           uri: http://localhost:8082
           predicates:
             - Path=/api/telemedicine/dev/issue-token
 
-
+        # WILDCARD route goes AFTER the specific route
+        - id: telemedicine-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/telemedicine/**
 
         - id: appointment-service
           uri: http://localhost:8082
