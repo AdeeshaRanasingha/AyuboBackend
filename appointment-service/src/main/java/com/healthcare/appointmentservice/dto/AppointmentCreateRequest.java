@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -62,4 +63,7 @@ public class AppointmentCreateRequest {
     private Boolean noShowRefund;
 
     private Boolean onGoingNumber;
+
+    /** Optional; total price in LKR (consultation + extras). */
+    private BigDecimal totalPrice;
 }
