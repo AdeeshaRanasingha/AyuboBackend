@@ -26,19 +26,15 @@ public class AppointmentResponse {
     private String contactEmail;
     private Long doctorId;
     private String specialty;
+    private Long slotId;
     private LocalDate appointmentDate;
     private LocalTime startTime;
     private LocalTime endTime;
     private String reason;
     private String noteOrAddress;
-    private Boolean noShowRefund;
     private Boolean onGoingNumber;
     private String status;
     private String paymentStatus;
-    private BigDecimal totalPrice;
-    private String notes;
-    private String cancelReason;
-    private Integer rescheduleCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

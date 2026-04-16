@@ -32,4 +32,19 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             LocalDate appointmentDate,
             LocalTime startTime
     );
+
+    long countByDoctorIdAndAppointmentDateAndStartTimeAndStatusIn(
+            Long doctorId,
+            LocalDate appointmentDate,
+            LocalTime startTime,
+            List<AppointmentStatus> statuses
+    );
+
+    long countByDoctorIdAndAppointmentDateAndStartTimeAndStatusInAndIdNot(
+            Long doctorId,
+            LocalDate appointmentDate,
+            LocalTime startTime,
+            List<AppointmentStatus> statuses,
+            Long id
+    );
 }
