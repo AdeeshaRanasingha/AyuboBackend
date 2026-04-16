@@ -1,0 +1,5 @@
+# Created at 2026-04-15T15:29:01.759
+Boot Manifest-JAR contains absolute paths in classpath 'D:\A sllit\3 Year\3Year 1Sem\DS\ayubo web\AyuboBackend\notification-service\target\test-classes'
+Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+'other' has different root
+
