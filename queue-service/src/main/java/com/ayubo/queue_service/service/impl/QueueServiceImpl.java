@@ -34,7 +34,15 @@ public class QueueServiceImpl implements QueueService {
 
     @Override
     public QueueResponse createQueueEntry(QueueCreateRequest request) {
-        String patientEmail = resolvePatientEmail();
+        if (request.getAppointmentId() != null) {
+            var existing = queueEntryRepository.findByAppointmentId(request.getAppointmentId());
+            if (existing.isPresent()) {
+                return mapToResponse(existing.get());
+            }
+        }
+
+        assertCanCreateQueueEntry(request);
+        String patientEmail = resolvePatientEmail(request);
         int nextTokenNumber = queueEntryRepository
                 .findTopByDoctorIdAndQueueDateOrderByTokenNumberDesc(request.getDoctorId(), request.getQueueDate())
                 .map(entry -> entry.getTokenNumber() + 1)
@@ -144,7 +152,24 @@ public class QueueServiceImpl implements QueueService {
                 .build();
     }
 
-    private String resolvePatientEmail() {
+    private void assertCanCreateQueueEntry(QueueCreateRequest request) {
+        if (SecurityUtils.hasRole("PROVIDER")) {
+            Long doctorId = providerDoctorResolver.requireDoctorIdForCurrentProvider();
+            if (!doctorId.equals(request.getDoctorId())) {
+                throw new ForbiddenException("You cannot create queue entries for another doctor");
+            }
+            if (request.getPatientEmail() == null || request.getPatientEmail().isBlank()) {
+                throw new BadRequestException("patientEmail is required when provider creates a queue entry");
+            }
+        }
+    }
+
+    private String resolvePatientEmail(QueueCreateRequest request) {
+        if ((SecurityUtils.hasRole("PROVIDER") || SecurityUtils.hasRole("ADMIN"))
+                && request.getPatientEmail() != null
+                && !request.getPatientEmail().isBlank()) {
+            return request.getPatientEmail().trim();
+        }
         return SecurityUtils.requireCurrentUserEmail();
     }
 }

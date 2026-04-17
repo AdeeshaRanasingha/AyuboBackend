@@ -14,6 +14,7 @@ public class QueueCreateRequest {
 
     private Long patientId;
     private Long appointmentId;
+    private String patientEmail;
 
     @NotBlank(message = "patientName is required")
     private String patientName;
