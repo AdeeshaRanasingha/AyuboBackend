@@ -11,12 +11,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/payment")
@@ -28,8 +30,6 @@ public class PaymentController {
     @Value("${services.appointment.base-url}")
     private String appointmentBaseUrl;
 
-    @Value("${services.auth.base-url}")
-    private String authBaseUrl;
 
     @Value("${services.notification.base-url}")
     private String notificationBaseUrl;
@@ -39,9 +39,11 @@ public class PaymentController {
 
     private final TransactionRepository transactionRepository;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final JdbcTemplate jdbcTemplate;
 
-    public PaymentController(TransactionRepository transactionRepository) {
+    public PaymentController(TransactionRepository transactionRepository, JdbcTemplate jdbcTemplate) {
         this.transactionRepository = transactionRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @PostMapping("/create-checkout-session")
@@ -57,9 +59,16 @@ public class PaymentController {
             );
             Map<String, Object> appointment = unwrapData(appointmentWrapper);
 
+
             if (appointment == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Appointment not found"));
             }
+
+            Long doctorId = longValue(appointment.get("doctorId"));
+            Map<String, Object> provider = fetchProviderBillingFromDb(doctorId);
+            Map<String, Object> fees = fetchFeeConfigFromDb();
+
+
 
             String appointmentStatus = stringValue(appointment.get("status"));
             String paymentStatus = stringValue(appointment.get("paymentStatus"));
@@ -72,26 +81,12 @@ public class PaymentController {
                 return ResponseEntity.badRequest().body(Map.of("error", "This appointment is already paid"));
             }
 
-            Long doctorId = longValue(appointment.get("doctorId"));
+
             String appointmentType = stringValue(appointment.get("appointmentType"));
             String appointmentNumber = stringValue(appointment.get("appointmentNumber"));
             String patientEmail = stringValue(appointment.get("patientEmail"));
             String patientName = stringValue(appointment.get("patientName"));
             String patientPhone = stringValue(appointment.get("contactNumber"));
-
-            Map<String, Object> provider = restTemplate.getForObject(
-                    authBaseUrl + "/api/provider/" + doctorId + "/billing-summary",
-                    Map.class
-            );
-
-            Map<String, Object> fees = restTemplate.getForObject(
-                    authBaseUrl + "/api/public/fees",
-                    Map.class
-            );
-
-            if (provider == null || fees == null) {
-                return ResponseEntity.status(500).body(Map.of("error", "Unable to load billing configuration"));
-            }
 
             String doctorName = stringValue(provider.get("fullName"));
             String doctorEmail = stringValue(provider.get("email"));
@@ -197,6 +192,12 @@ public class PaymentController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Appointment not found"));
             }
 
+            Long doctorId = longValue(appointment.get("doctorId"));
+            Map<String, Object> provider = fetchProviderBillingFromDb(doctorId);
+            Map<String, Object> fees = fetchFeeConfigFromDb();
+
+
+
             String appointmentStatus = stringValue(appointment.get("status"));
             String paymentStatus = stringValue(appointment.get("paymentStatus"));
 
@@ -229,26 +230,13 @@ public class PaymentController {
                 }
             }
 
-            Long doctorId = longValue(appointment.get("doctorId"));
+
             String appointmentType = stringValue(appointment.get("appointmentType"));
             String appointmentNumber = stringValue(appointment.get("appointmentNumber"));
             String patientEmail = stringValue(appointment.get("patientEmail"));
             String patientName = stringValue(appointment.get("patientName"));
             String patientPhone = stringValue(appointment.get("contactNumber"));
 
-            Map<String, Object> provider = restTemplate.getForObject(
-                    authBaseUrl + "/api/provider/" + doctorId + "/billing-summary",
-                    Map.class
-            );
-
-            Map<String, Object> fees = restTemplate.getForObject(
-                    authBaseUrl + "/api/public/fees",
-                    Map.class
-            );
-
-            if (provider == null || fees == null) {
-                return ResponseEntity.status(500).body(Map.of("error", "Unable to load billing configuration"));
-            }
 
             String doctorName = stringValue(provider.get("fullName"));
             String doctorEmail = stringValue(provider.get("email"));
@@ -334,20 +322,38 @@ public class PaymentController {
             tx.setPatientEmail(realEmail);
             transactionRepository.save(tx);
 
+            jdbcTemplate.update(
+                    """
+                    UPDATE ayubo_appointment_db.appoinment
+                    SET payment_status = ?,
+                        total_price = ?,
+                        notes = ?,
+                        updated_at = NOW()
+                    WHERE id = ?
+                    """,
+                    "PAID",
+                    BigDecimal.valueOf(tx.getAmount()).setScale(2, RoundingMode.HALF_UP),
+                    "Payment completed successfully. Invoice: " + tx.getInvoiceNumber(),
+                    tx.getAppointmentId()
+            );
+
             Map<String, Object> paymentStatusBody = new LinkedHashMap<>();
             paymentStatusBody.put("paymentStatus", "PAID");
             paymentStatusBody.put("totalPrice", BigDecimal.valueOf(tx.getAmount()).setScale(2, RoundingMode.HALF_UP));
             paymentStatusBody.put("notes", "Payment completed successfully. Invoice: " + tx.getInvoiceNumber());
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.APPLICATION_JSON);
+//
+//            restTemplate.exchange(
+//                    appointmentBaseUrl + "/api/appointments/" + tx.getAppointmentId() + "/payment-status",
+//                    HttpMethod.PATCH,
+//                    new HttpEntity<>(paymentStatusBody, headers),
+//                    Map.class
+//            );
 
-            restTemplate.exchange(
-                    appointmentBaseUrl + "/api/appointments/" + tx.getAppointmentId() + "/payment-status",
-                    HttpMethod.PATCH,
-                    new HttpEntity<>(paymentStatusBody, headers),
-                    Map.class
-            );
+
+
 
             sendNotification(
                     tx.getPatientEmail(),
@@ -488,6 +494,100 @@ public class PaymentController {
     }
 
     private double doubleValue(Object obj) {
+        if (obj == null) return 0.0;
+        if (obj instanceof Number number) return number.doubleValue();
+        return Double.parseDouble(String.valueOf(obj));
+    }
+
+    private Map<String, Object> fetchProviderBillingFromDb(Long doctorId) {
+        String sql = """
+        SELECT mp.id,
+               u.first_name,
+               u.last_name,
+               u.email,
+               u.phone,
+               mp.hospital_name,
+               mp.consultation_fee,
+               mp.specialty
+        FROM ayubo_auth_db.medical_providers mp
+        JOIN ayubo_auth_db.users u ON u.id = mp.id
+        WHERE mp.id = ?
+          AND u.role = 'PROVIDER'
+        LIMIT 1
+        """;
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, doctorId);
+
+        if (rows.isEmpty()) {
+            throw new RuntimeException("Medical provider not found for id: " + doctorId);
+        }
+
+        Map<String, Object> row = rows.get(0);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", toLong(row.get("id")));
+        result.put("fullName", (stringValue(row.get("first_name")) + " " + stringValue(row.get("last_name"))).trim());
+        result.put("email", stringValue(row.get("email")));
+        result.put("phone", stringValue(row.get("phone")));
+        result.put("hospitalName", stringValue(row.get("hospital_name")));
+        result.put("consultationFee", toDouble(row.get("consultation_fee")));
+        result.put("specialty", stringValue(row.get("specialty")));
+
+        return result;
+    }
+
+
+    private Map<String, Object> fetchFeeConfigFromDb() {
+        String sql = """
+        SELECT id,
+               asiri_hospital_fee,
+               durdans_hospital_fee,
+               hemas_hospital_fee,
+               kings_hospital_fee,
+               lanka_hospital_fee,
+               medihelp_hospital_fee,
+               nawaloka_hospital_fee,
+               ninewells_hospital_fee,
+               online_consultation_fee,
+               tax_percentage
+        FROM ayubo_auth_db.fee_configuration
+        ORDER BY id ASC
+        LIMIT 1
+        """;
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+
+        if (rows.isEmpty()) {
+            throw new RuntimeException("Fee configuration not found");
+        }
+
+        Map<String, Object> row = rows.get(0);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("taxPercentage", toDouble(row.get("tax_percentage")));
+        result.put("onlineConsultationFee", toDouble(row.get("online_consultation_fee")));
+
+        Map<String, Object> hospitalFees = new LinkedHashMap<>();
+        hospitalFees.put("Asiri Hospital", toDouble(row.get("asiri_hospital_fee")));
+        hospitalFees.put("Durdans Hospital", toDouble(row.get("durdans_hospital_fee")));
+        hospitalFees.put("Hemas Hospital", toDouble(row.get("hemas_hospital_fee")));
+        hospitalFees.put("Kings Hospital", toDouble(row.get("kings_hospital_fee")));
+        hospitalFees.put("Lanka Hospitals", toDouble(row.get("lanka_hospital_fee")));
+        hospitalFees.put("Medihelp Hospitals", toDouble(row.get("medihelp_hospital_fee")));
+        hospitalFees.put("Nawaloka Hospital", toDouble(row.get("nawaloka_hospital_fee")));
+        hospitalFees.put("Ninewells Hospital", toDouble(row.get("ninewells_hospital_fee")));
+
+        result.put("hospitalFees", hospitalFees);
+        return result;
+    }
+
+    private Long toLong(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number number) return number.longValue();
+        return Long.parseLong(String.valueOf(obj));
+    }
+
+    private Double toDouble(Object obj) {
         if (obj == null) return 0.0;
         if (obj instanceof Number number) return number.doubleValue();
         return Double.parseDouble(String.valueOf(obj));

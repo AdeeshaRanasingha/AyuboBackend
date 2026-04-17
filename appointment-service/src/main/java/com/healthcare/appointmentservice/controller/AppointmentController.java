@@ -75,7 +75,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/doctor/{doctorId}/available-slots")
-    public ApiResponse<List<SlotStatusResponse>> getAvailableSlots(
+    public ApiResponse<List<String>> getAvailableSlots(
             @PathVariable("doctorId") Long doctorId,
             @RequestParam("date") String date,
             @RequestParam(name = "month", required = false) Boolean month,
@@ -83,7 +83,7 @@ public class AppointmentController {
     ) {
         boolean forCurrentMonth = Boolean.TRUE.equals(month)
                 || (scope != null && "month".equalsIgnoreCase(scope.trim()));
-        return ApiResponse.<List<SlotStatusResponse>>builder()
+        return ApiResponse.<List<String>>builder()
                 .success(true)
                 .message("Available slots fetched successfully")
                 .data(appointmentService.getAvailableSlots(doctorId, date, forCurrentMonth))

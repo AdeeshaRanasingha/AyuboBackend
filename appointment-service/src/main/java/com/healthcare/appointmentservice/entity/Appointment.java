@@ -99,6 +99,12 @@ public class Appointment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "total_price", precision = 10, scale = 2)
+    private java.math.BigDecimal totalPrice;
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
     // Add this near your other fields (like noteOrAddress)
     @Column(name = "prescription_url")
     private String prescriptionUrl;
