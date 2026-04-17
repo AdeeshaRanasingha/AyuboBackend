@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "appoinment")
+@Table(name = "appoinment") // Note: "appointment" is misspelled here, keeping it as is so your DB doesn't break!
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -83,6 +83,10 @@ public class Appointment {
     @Column(name = "note_or_address", length = 255)
     private String noteOrAddress;
 
+    // ADDED: To fix the 'setNotes' missing method error in AppointmentServiceImpl
+    @Column(name = "notes", length = 1000)
+    private String notes;
+
     @Column(name = "on_going_number")
     private Boolean onGoingNumber;
 
@@ -93,24 +97,18 @@ public class Appointment {
     @Column(name = "payment_status", length = 50)
     private String paymentStatus;
 
+    // ADDED: To fix the 'setTotalPrice' missing method error in AppointmentServiceImpl
+    @Column(name = "total_price", precision = 10, scale = 2)
+    private BigDecimal totalPrice;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // Add this near your other fields (like noteOrAddress)
     @Column(name = "prescription_url")
     private String prescriptionUrl;
-
-    // Add the Getter and Setter at the bottom
-    public String getPrescriptionUrl() {
-        return prescriptionUrl;
-    }
-
-    public void setPrescriptionUrl(String prescriptionUrl) {
-        this.prescriptionUrl = prescriptionUrl;
-    }
 
     @PrePersist
     public void prePersist() {

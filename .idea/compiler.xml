@@ -22,7 +22,7 @@
       <module name="api-gateway" options="-parameters" />
       <module name="appointment-service" options="-parameters" />
       <module name="auth-service" options="-parameters" />
-      <module name="notification-service" options="-parameters" />
+      <module name="notification-service" options="" />
       <module name="payment-service" options="-parameters" />
     </option>
   </component>

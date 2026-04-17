@@ -28,9 +28,9 @@ public interface AppointmentService {
 
     AppointmentResponse updatePaymentStatus(Long id, PaymentStatusUpdateRequest request);
 
-    void cancelAppointment(Long id, String cancelReason);
+    void cancelAppointment(Long id);
 
-    AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
+    //AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
 
 
     List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
