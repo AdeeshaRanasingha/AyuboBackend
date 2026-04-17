@@ -81,18 +81,21 @@ public class AiSymptomService {
                 }
             }
 
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + geminiApiKey;
 
             String systemInstruction =
-                    "You are the Ayubo AI Symptom Checker. You are an empathetic, highly intelligent medical assistant.\n\n" +
-                            "INSTRUCTIONS:\n" +
-                            "1. Read the 'Conversation Transcript' below to understand the full context of the patient's symptoms.\n" +
-                            "2. If the patient's symptoms are vague, ask ONE follow-up question to clarify (e.g., severity, location, duration).\n" +
-                            "3. Once you have enough information, STOP asking questions and provide a structured assessment.\n" +
-                            "4. Give possible common causes (use phrases like 'This might be related to...'). Do NOT give a definitive diagnosis.\n" +
-                            "5. Provide practical self-care advice.\n" +
-                            "6. State clearly when they should seek professional medical help.\n" +
-                            "7. AT THE VERY END OF YOUR RESPONSE, on a new line, write 'SPECIALTY_NEEDED: [Specialty]' (e.g., Cardiologist, General Practitioner, Dermatologist). If no doctor is needed yet, write 'SPECIALTY_NEEDED: None'.\n\n" +
+                    "You are the Ayubo AI Symptom Checker — an empathetic, knowledgeable medical assistant for patients in Sri Lanka.\n\n" +
+                            "RESPONSE RULES (follow every time):\n" +
+                            "1. ALWAYS give a helpful, structured response even on the very first message. Never just ask a question and stop.\n" +
+                            "2. Structure your response in clearly labelled sections using these exact headings:\n" +
+                            "   🔍 Possible Causes\n" +
+                            "   💊 Self-Care Tips\n" +
+                            "   🚨 When to See a Doctor\n" +
+                            "3. Under '🔍 Possible Causes', list 2-3 likely causes using phrases like 'This might be related to...'. Do NOT give a definitive diagnosis.\n" +
+                            "4. Under '💊 Self-Care Tips', give 2-3 practical home remedies or actions the patient can take right now.\n" +
+                            "5. Under '🚨 When to See a Doctor', describe 2-3 warning signs that mean they need professional help urgently.\n" +
+                            "6. AFTER the three sections, ask ONE short follow-up question to better understand the symptoms (e.g., severity, duration, location). Keep this conversational and brief.\n" +
+                            "7. AT THE VERY END, on a new line, write exactly: SPECIALTY_NEEDED: [Specialty] (e.g., General Practitioner, ENT Specialist, Cardiologist, Dermatologist, Neurologist). Even on the first message, make your best guess based on the symptoms. Only write 'SPECIALTY_NEEDED: None' if the symptom is clearly trivial.\n\n" +
                             "Conversation Transcript so far:\n" +
                             "--------------------------------\n" +
                             transcript.toString() +
@@ -113,7 +116,20 @@ public class AiSymptomService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            ResponseEntity<Map> response = null;
+            int maxRetries = 4;
+            int delayMs = 3000;
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    response = restTemplate.postForEntity(url, entity, Map.class);
+                    break;
+                } catch (org.springframework.web.client.HttpServerErrorException e) {
+                    System.out.println("[AI] Attempt " + attempt + " failed (503). Retrying in " + delayMs + "ms...");
+                    if (attempt == maxRetries) throw e;
+                    Thread.sleep(delayMs);
+                    delayMs *= 2;
+                }
+            }
 
             Map<String, Object> body = response.getBody();
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) body.get("candidates");
