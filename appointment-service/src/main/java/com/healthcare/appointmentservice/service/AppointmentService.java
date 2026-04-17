@@ -30,11 +30,9 @@ public interface AppointmentService {
 
     AppointmentResponse markPaymentAsPaid(Long id);
 
-    void cancelAppointment(Long id, String cancelReason);
+    void cancelAppointment(Long id);
 
     AppointmentResponse updatePaymentStatus(Long id, PaymentStatusUpdateRequest request);
-
-    void cancelAppointment(Long id);
 
     List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
 

@@ -39,8 +39,11 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AppointmentServiceImpl implements AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
@@ -123,16 +126,18 @@ public class AppointmentServiceImpl implements AppointmentService {
     public AppointmentResponse getAppointmentById(Long id) {
         Appointment appointment = findAppointmentById(id);
         assertCanAccessAppointment(appointment);
-        return mapToResponse(appointment);
+        Map<Long, Map<String, Object>> doctorMap = fetchProviderMap(appointment.getDoctorId());
+        return mapToResponse(appointment, doctorMap);
     }
 
     @Override
     public List<AppointmentResponse> getMyAppointments() {
         SecurityUtils.requirePatient();
         String email = SecurityUtils.requireCurrentUserEmail();
-        return appointmentRepository.findByPatientEmailIgnoreCase(email)
-                .stream()
-                .map(this::mapToResponse)
+        List<Appointment> appointments = appointmentRepository.findByPatientEmailIgnoreCase(email);
+        Map<Long, Map<String, Object>> doctorMap = fetchProviderMap(null);
+        return appointments.stream()
+                .map(a -> mapToResponse(a, doctorMap))
                 .collect(Collectors.toList());
     }
 
@@ -594,7 +599,11 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private AppointmentResponse mapToResponse(Appointment appointment) {
-        return AppointmentResponse.builder()
+        return mapToResponse(appointment, null);
+    }
+
+    private AppointmentResponse mapToResponse(Appointment appointment, Map<Long, Map<String, Object>> doctorMap) {
+        AppointmentResponse resp = AppointmentResponse.builder()
                 .id(appointment.getId())
                 .appointmentNumber(appointment.getAppointmentNumber())
                 .patientId(appointment.getPatientId())
@@ -620,7 +629,49 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .paymentStatus(appointment.getPaymentStatus())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
+                .prescriptionUrl(appointment.getPrescriptionUrl()) // Added this
                 .build();
+
+        if (doctorMap != null && doctorMap.containsKey(appointment.getDoctorId())) {
+            Map<String, Object> doc = doctorMap.get(appointment.getDoctorId());
+            String fName = extractString(doc, "firstName", "");
+            String lName = extractString(doc, "lastName", "");
+            String fullName = (fName + " " + lName).trim();
+            
+            resp.setDoctorName(!fullName.isEmpty() ? fullName : "Dr. " + appointment.getDoctorId());
+            resp.setDoctorPhoto(extractString(doc, "profileImage", null));
+            resp.setHospitalName(extractString(doc, "hospitalName", appointment.getSpecialty()));
+        } else {
+            // Fallbacks for UI
+            resp.setDoctorName("Dr. " + appointment.getDoctorId());
+            resp.setHospitalName(appointment.getSpecialty());
+        }
+
+        return resp;
+    }
+
+    private Map<Long, Map<String, Object>> fetchProviderMap(Long targetDoctorId) {
+        try {
+            List<Map<String, Object>> directory = authProviderDirectoryClient.fetchProviderDirectory();
+            if (directory == null) return Collections.emptyMap();
+
+            return directory.stream()
+                    .filter(m -> m.get("id") != null)
+                    .filter(m -> targetDoctorId == null || String.valueOf(targetDoctorId).equals(String.valueOf(m.get("id"))))
+                    .collect(Collectors.toMap(
+                            m -> Long.valueOf(m.get("id").toString()),
+                            m -> m,
+                            (existing, replacement) -> existing
+                    ));
+        } catch (Exception e) {
+            log.warn("Failed to fetch provider directory for enrichment: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    private String extractString(Map<String, Object> map, String key, String fallback) {
+        Object val = map.get(key);
+        return (val != null && !val.toString().isBlank()) ? val.toString().trim() : fallback;
     }
 
     private AppointmentQueueItemResponse mapToQueueItemResponse(Appointment appointment) {
@@ -753,7 +804,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     public AppointmentResponse getAppointmentPublic(Long id) {
         Appointment appointment = findAppointmentById(id);
-        return mapToResponse(appointment);
+        Map<Long, Map<String, Object>> doctorMap = fetchProviderMap(appointment.getDoctorId());
+        return mapToResponse(appointment, doctorMap);
     }
 
     @Override
