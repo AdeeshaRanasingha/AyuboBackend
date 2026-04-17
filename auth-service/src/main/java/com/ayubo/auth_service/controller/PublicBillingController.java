@@ -3,7 +3,7 @@ package com.ayubo.auth_service.controller;
 import com.ayubo.auth_service.model.FeeConfiguration;
 import com.ayubo.auth_service.model.MedicalProvider;
 import com.ayubo.auth_service.repository.FeeConfigurationRepository;
-import com.ayubo.auth_service.repository.ProviderRepository;
+import com.ayubo.auth_service.repository.MedicalProviderRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +14,11 @@ import java.util.Map;
 @RequestMapping("/api")
 public class PublicBillingController {
 
-    private final ProviderRepository providerRepository;
+    private final MedicalProviderRepository providerRepository;
     private final FeeConfigurationRepository feeConfigurationRepository;
 
     public PublicBillingController(
-            ProviderRepository providerRepository,
+            MedicalProviderRepository providerRepository,
             FeeConfigurationRepository feeConfigurationRepository
     ) {
         this.providerRepository = providerRepository;

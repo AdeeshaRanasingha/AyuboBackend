@@ -38,6 +38,11 @@ public class AppointmentResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // Rich UI fields
+    private String doctorName;
+    private String doctorPhoto;
+    private String hospitalName;
+
     // ✅ ADDED THIS LINE SO REACT CAN SEE THE URL
     private String prescriptionUrl;
 }
