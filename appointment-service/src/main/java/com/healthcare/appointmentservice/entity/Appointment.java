@@ -99,8 +99,12 @@ public class Appointment {
     @Column(name = "total_price", precision = 10, scale = 2)
     private BigDecimal totalPrice;
 
-    @Column(name = "prescription_url")
-    private String prescriptionUrl;
+    @Column(name = "prescription_name", length = 255)
+    private String prescriptionName;
+
+    @Lob
+    @Column(name = "prescription_data", columnDefinition = "LONGTEXT")
+    private String prescriptionData;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

@@ -388,7 +388,21 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
-        return null;
+        Appointment appointment = findAppointmentById(appointmentId);
+        try {
+            String mimeType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+            String base64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+            String dataUri = "data:" + mimeType + ";base64," + base64;
+
+            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "prescription";
+            appointment.setPrescriptionName(filename);
+            appointment.setPrescriptionData(dataUri);
+
+            Appointment updated = appointmentRepository.save(appointment);
+            return mapToResponse(updated);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save prescription: " + e.getMessage());
+        }
     }
 
     /**
@@ -594,9 +608,10 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .paymentStatus(appointment.getPaymentStatus())
                 .totalPrice(appointment.getTotalPrice())
                 .notes(appointment.getNotes())
+                .prescriptionName(appointment.getPrescriptionName())
+                .prescriptionData(appointment.getPrescriptionData())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
-                .prescriptionUrl(appointment.getPrescriptionUrl())
                 .build();
     }
 

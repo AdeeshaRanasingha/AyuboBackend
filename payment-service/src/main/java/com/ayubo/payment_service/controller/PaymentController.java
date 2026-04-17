@@ -101,7 +101,7 @@ public class PaymentController {
                 facilityFee = onlineFee;
             } else {
                 Map<String, Object> hospitalFees = safeMap(fees.get("hospitalFees"));
-                facilityFee = doubleValue(hospitalFees.getOrDefault(hospitalName, 0));
+                facilityFee = lookupHospitalFee(hospitalFees, hospitalName);
             }
 
             BigDecimal subtotal = BigDecimal.valueOf(doctorFee + facilityFee);
@@ -251,7 +251,7 @@ public class PaymentController {
                 facilityFee = onlineFee;
             } else {
                 Map<String, Object> hospitalFees = safeMap(fees.get("hospitalFees"));
-                facilityFee = doubleValue(hospitalFees.getOrDefault(hospitalName, 0));
+                facilityFee = lookupHospitalFee(hospitalFees, hospitalName);
             }
 
             BigDecimal subtotal = BigDecimal.valueOf(doctorFee + facilityFee).setScale(2, RoundingMode.HALF_UP);
@@ -497,6 +497,20 @@ public class PaymentController {
         if (obj == null) return 0.0;
         if (obj instanceof Number number) return number.doubleValue();
         return Double.parseDouble(String.valueOf(obj));
+    }
+
+    private double lookupHospitalFee(Map<String, Object> hospitalFees, String hospitalName) {
+        if (hospitalName == null || hospitalName.isBlank()) return 0.0;
+        String needle = hospitalName.trim().toLowerCase();
+        for (Map.Entry<String, Object> entry : hospitalFees.entrySet()) {
+            String key = entry.getKey().trim().toLowerCase();
+            // Normalize key: strip " hospital(s)" suffix for loose matching
+            String keyBase = key.replaceAll("\\s+hospitals?$", "").trim();
+            if (key.equals(needle) || key.contains(needle) || needle.contains(keyBase)) {
+                return doubleValue(entry.getValue());
+            }
+        }
+        return 0.0;
     }
 
     private Map<String, Object> fetchProviderBillingFromDb(Long doctorId) {
