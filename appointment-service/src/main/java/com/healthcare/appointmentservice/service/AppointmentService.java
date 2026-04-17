@@ -30,14 +30,7 @@ public interface AppointmentService {
 
     void cancelAppointment(Long id);
 
-    //AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
-
     AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file);
 
-    
-    // Add this to AppointmentService.java
-    AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
-}
-
-    List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
+    List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
 }
