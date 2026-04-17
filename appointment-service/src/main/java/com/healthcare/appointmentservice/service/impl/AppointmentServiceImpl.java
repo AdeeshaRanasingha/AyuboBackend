@@ -20,7 +20,7 @@ import com.healthcare.appointmentservice.repository.AppointmentRepository;
 import com.healthcare.appointmentservice.security.SecurityUtils;
 import com.healthcare.appointmentservice.service.AppointmentService;
 import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
-import java.math.BigDecimal;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -348,16 +348,23 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
-    public List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
+    public List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
         LocalDate anchor = parseSlotDate(date);
+
         if (!forCurrentMonth) {
             List<Appointment> bookedAppointments =
                     appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, anchor);
-            return buildAvailableSlotResponsesForDay(doctorId, anchor, bookedAppointments);
+
+            return buildAvailableSlotResponsesForDay(doctorId, anchor, bookedAppointments)
+                    .stream()
+                    .filter(slot -> "AVAILABLE".equalsIgnoreCase(slot.getStatus()))
+                    .map(SlotStatusResponse::getStartTime)
+                    .collect(Collectors.toList());
         }
 
         LocalDate monthStart = anchor.withDayOfMonth(1);
         LocalDate monthEnd = anchor.withDayOfMonth(anchor.lengthOfMonth());
+
         List<Appointment> monthBookings = appointmentRepository.findByDoctorIdAndAppointmentDateBetween(
                 doctorId,
                 monthStart,
@@ -367,20 +374,22 @@ public class AppointmentServiceImpl implements AppointmentService {
         Map<LocalDate, List<Appointment>> bookingsByDay = monthBookings.stream()
                 .collect(Collectors.groupingBy(Appointment::getAppointmentDate));
 
-        List<SlotStatusResponse> combined = new ArrayList<>();
+        List<String> combined = new ArrayList<>();
+
         for (LocalDate d = monthStart; !d.isAfter(monthEnd); d = d.plusDays(1)) {
-            List<Appointment> bookedForDay = bookingsByDay.getOrDefault(d, Collections.emptyList());
-            for (SlotStatusResponse res : buildAvailableSlotResponsesForDay(doctorId, d, bookedForDay)) {
-                // Prefix status if needed or just add it
-                SlotStatusResponse prefixed = SlotStatusResponse.builder()
-                        .startTime(d + " " + res.getStartTime())
-                        .maxPatients(res.getMaxPatients())
-                        .availableSlots(res.getAvailableSlots())
-                        .status(res.getStatus())
-                        .build();
-                combined.add(prefixed);
-            }
+            LocalDate currentDate = d;
+
+            List<Appointment> bookedForDay = bookingsByDay.getOrDefault(currentDate, Collections.emptyList());
+
+            List<String> daySlots = buildAvailableSlotResponsesForDay(doctorId, currentDate, bookedForDay)
+                    .stream()
+                    .filter(slot -> "AVAILABLE".equalsIgnoreCase(slot.getStatus()))
+                    .map(slot -> currentDate + " " + slot.getStartTime())
+                    .collect(Collectors.toList());
+
+            combined.addAll(daySlots);
         }
+
         return combined;
     }
 
@@ -590,8 +599,11 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .slotId(appointment.getSlotId())
                 .status(appointment.getStatus().name())
                 .paymentStatus(appointment.getPaymentStatus())
+                .totalPrice(appointment.getTotalPrice())
+                .notes(appointment.getNotes())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
+                .prescriptionUrl(appointment.getPrescriptionUrl())
                 .build();
     }
 
@@ -733,5 +745,10 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         Appointment updated = appointmentRepository.save(appointment);
         return mapToResponse(updated);
+    }
+
+    @Override
+    public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
+        throw new UnsupportedOperationException("Prescription upload not implemented yet");
     }
 }
