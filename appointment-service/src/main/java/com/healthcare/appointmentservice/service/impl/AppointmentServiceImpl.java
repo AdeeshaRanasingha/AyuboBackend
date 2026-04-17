@@ -388,7 +388,12 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
+        SecurityUtils.requireProvider();
         Appointment appointment = findAppointmentById(appointmentId);
+        Long mappedDoctorId = requireDoctorIdForProvider(SecurityUtils.requireCurrentUserEmail());
+        if (!mappedDoctorId.equals(appointment.getDoctorId())) {
+            throw new ForbiddenException("You cannot upload a prescription for this appointment");
+        }
         try {
             String mimeType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
             String base64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
@@ -400,6 +405,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
             Appointment updated = appointmentRepository.save(appointment);
             return mapToResponse(updated);
+        } catch (ForbiddenException fe) {
+            throw fe;
         } catch (Exception e) {
             throw new RuntimeException("Failed to save prescription: " + e.getMessage());
         }
