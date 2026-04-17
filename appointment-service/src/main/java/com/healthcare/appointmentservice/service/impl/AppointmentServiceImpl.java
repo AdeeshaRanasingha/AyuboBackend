@@ -4,6 +4,7 @@ import com.healthcare.appointmentservice.client.DoctorScheduleSlotClient;
 import com.healthcare.appointmentservice.client.NotificationServiceClient;
 import com.healthcare.appointmentservice.client.dto.AuthScheduleSlotRow;
 import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
+import com.healthcare.appointmentservice.dto.AppointmentQueueItemResponse;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.NotificationRequest;
@@ -31,8 +32,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -143,6 +146,25 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointmentRepository.findByDoctorId(doctorId)
                 .stream()
                 .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AppointmentQueueItemResponse> getSlotQueueForAppointment(Long id) {
+        Appointment appointment = findAppointmentById(id);
+        assertCanAccessAppointment(appointment);
+
+        return appointmentRepository.findAllByDoctorIdAndAppointmentDateAndStartTime(
+                        appointment.getDoctorId(),
+                        appointment.getAppointmentDate(),
+                        appointment.getStartTime()
+                )
+                .stream()
+                .filter(this::isReadyTelemedicineAppointment)
+                .sorted(Comparator
+                        .comparing(Appointment::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Appointment::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::mapToQueueItemResponse)
                 .collect(Collectors.toList());
     }
 
@@ -443,6 +465,16 @@ public class AppointmentServiceImpl implements AppointmentService {
         return s.length() >= 5 ? s.substring(0, 5) : s;
     }
 
+    private boolean isReadyTelemedicineAppointment(Appointment appointment) {
+        if (appointment == null || appointment.getAppointmentType() == null) {
+            return false;
+        }
+        String type = appointment.getAppointmentType().trim().toUpperCase(Locale.ROOT);
+        return (type.contains("VIDEO") || type.contains("TELE") || type.contains("ONLINE"))
+                && appointment.getStatus() == AppointmentStatus.CONFIRMED
+                && "PAID".equalsIgnoreCase(appointment.getPaymentStatus());
+    }
+
     private int resolveMaxPatientsForSlot(long doctorId, LocalDate day, LocalTime startTime) {
         String slotKey = normalizeSlotTimeKey(startTime.toString());
         List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, day.toString());
@@ -503,6 +535,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private void assertCanAccessAppointment(Appointment appointment) {
+        if (SecurityUtils.hasRole("ADMIN")) {
+            return;
+        }
         String email = SecurityUtils.requireCurrentUserEmail();
         if (SecurityUtils.hasRole("PATIENT") && email.equalsIgnoreCase(appointment.getPatientEmail())) {
             return;
@@ -585,6 +620,20 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .paymentStatus(appointment.getPaymentStatus())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
+                .build();
+    }
+
+    private AppointmentQueueItemResponse mapToQueueItemResponse(Appointment appointment) {
+        return AppointmentQueueItemResponse.builder()
+                .id(appointment.getId())
+                .appointmentNumber(appointment.getAppointmentNumber())
+                .doctorId(appointment.getDoctorId())
+                .appointmentDate(appointment.getAppointmentDate())
+                .startTime(appointment.getStartTime())
+                .appointmentType(appointment.getAppointmentType())
+                .status(appointment.getStatus().name())
+                .paymentStatus(appointment.getPaymentStatus())
+                .createdAt(appointment.getCreatedAt())
                 .build();
     }
 

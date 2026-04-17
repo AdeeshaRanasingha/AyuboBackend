@@ -1,6 +1,7 @@
 package com.ayubo.telemedicine_service.service;
 
 import com.ayubo.telemedicine_service.dto.ApiResponse;
+import com.ayubo.telemedicine_service.dto.AppointmentQueueItemResponse;
 import com.ayubo.telemedicine_service.dto.AppointmentResponse;
 import com.ayubo.telemedicine_service.exception.ForbiddenException;
 import com.ayubo.telemedicine_service.exception.ResourceNotFoundException;
@@ -70,6 +71,17 @@ public class AppointmentServiceClient {
                 new ParameterizedTypeReference<ApiResponse<List<AppointmentResponse>>>() {}
         );
         ApiResponse<List<AppointmentResponse>> body = response.getBody();
+        return body != null && body.getData() != null ? body.getData() : List.of();
+    }
+
+    public List<AppointmentQueueItemResponse> getSlotQueueForAppointment(Long appointmentId) {
+        ResponseEntity<ApiResponse<List<AppointmentQueueItemResponse>>> response = restTemplate.exchange(
+                appointmentServiceBaseUrl + "/api/appointments/" + appointmentId + "/slot-queue",
+                HttpMethod.GET,
+                new HttpEntity<>(null, buildHeaders()),
+                new ParameterizedTypeReference<ApiResponse<List<AppointmentQueueItemResponse>>>() {}
+        );
+        ApiResponse<List<AppointmentQueueItemResponse>> body = response.getBody();
         return body != null && body.getData() != null ? body.getData() : List.of();
     }
 

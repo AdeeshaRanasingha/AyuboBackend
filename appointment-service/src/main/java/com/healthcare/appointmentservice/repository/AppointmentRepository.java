@@ -33,6 +33,12 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             LocalTime startTime
     );
 
+    List<Appointment> findAllByDoctorIdAndAppointmentDateAndStartTime(
+            Long doctorId,
+            LocalDate appointmentDate,
+            LocalTime startTime
+    );
+
     long countByDoctorIdAndAppointmentDateAndStartTimeAndStatusIn(
             Long doctorId,
             LocalDate appointmentDate,

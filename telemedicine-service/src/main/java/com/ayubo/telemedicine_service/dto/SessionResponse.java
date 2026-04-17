@@ -25,4 +25,8 @@ public class SessionResponse {
     private LocalDateTime endedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Integer queuePosition;
+    private Integer queueAheadCount;
+    private Integer queueTotal;
+    private Boolean queueNext;
 }

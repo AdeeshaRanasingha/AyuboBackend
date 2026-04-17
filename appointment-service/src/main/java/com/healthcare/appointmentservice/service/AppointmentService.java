@@ -1,6 +1,7 @@
 package com.healthcare.appointmentservice.service;
 
 import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
+import com.healthcare.appointmentservice.dto.AppointmentQueueItemResponse;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
@@ -20,6 +21,8 @@ public interface AppointmentService {
     List<AppointmentResponse> getMyAppointments();
 
     List<AppointmentResponse> getAppointmentsByDoctor(Long doctorId);
+
+    List<AppointmentQueueItemResponse> getSlotQueueForAppointment(Long id);
 
     AppointmentResponse updateAppointment(Long id, AppointmentUpdateRequest request);
 

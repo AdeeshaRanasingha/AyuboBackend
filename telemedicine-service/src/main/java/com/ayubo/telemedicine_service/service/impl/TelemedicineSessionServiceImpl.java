@@ -3,6 +3,7 @@ package com.ayubo.telemedicine_service.service.impl;
 import com.ayubo.telemedicine_service.dto.SessionCreateRequest;
 import com.ayubo.telemedicine_service.dto.SessionResponse;
 import com.ayubo.telemedicine_service.dto.SessionStatusUpdateRequest;
+import com.ayubo.telemedicine_service.dto.AppointmentQueueItemResponse;
 import com.ayubo.telemedicine_service.dto.AppointmentResponse;
 import com.ayubo.telemedicine_service.entity.SessionStatus;
 import com.ayubo.telemedicine_service.entity.TelemedicineSession;
@@ -63,7 +64,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
                 .appointmentId(request.getAppointmentId())
                 .doctorId(doctorId)
                 .patientId(appointment.getPatientId())
-                .queueEntryId(null)
+                .queueEntryId(appointment.getId())
                 .patientEmail(patientEmail)
                 .consultationType(consultationType)
                 .meetingProvider("JITSI")
@@ -127,6 +128,9 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
         }
         if (session.getScheduledAt() != null && LocalDateTime.now().isBefore(session.getScheduledAt())) {
             throw new BadRequestException("Session can only be started at or after the scheduled time");
+        }
+        if (hasEarlierQueuePatient(session)) {
+            throw new BadRequestException("Wait for the earlier patient in the queue to finish");
         }
 
         session.setStatus(SessionStatus.ACTIVE);
@@ -223,6 +227,10 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
                 || normalized.contains("ONLINE");
     }
 
+    private boolean hasEarlierQueuePatient(TelemedicineSession session) {
+        return buildQueueMeta(session).aheadCount() > 0;
+    }
+
     private String normalizeConsultationType(String consultationType) {
         if (consultationType == null || consultationType.isBlank()) {
             return "VIDEO_CONSULTATION";
@@ -249,6 +257,7 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
     }
 
     private SessionResponse mapToResponse(TelemedicineSession session) {
+        QueueMeta queueMeta = buildQueueMeta(session);
         return SessionResponse.builder()
                 .id(session.getId())
                 .appointmentId(session.getAppointmentId())
@@ -267,6 +276,43 @@ public class TelemedicineSessionServiceImpl implements TelemedicineSessionServic
                 .endedAt(session.getEndedAt())
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
+                .queuePosition(queueMeta.position())
+                .queueAheadCount(queueMeta.aheadCount())
+                .queueTotal(queueMeta.total())
+                .queueNext(queueMeta.isNext())
                 .build();
+    }
+
+    private QueueMeta buildQueueMeta(TelemedicineSession session) {
+        if (session == null || session.getAppointmentId() == null || session.getStatus() == SessionStatus.ENDED) {
+            return new QueueMeta(0, 0, 0, false);
+        }
+
+        List<AppointmentQueueItemResponse> queue = appointmentServiceClient.getSlotQueueForAppointment(session.getAppointmentId());
+        int currentIndex = -1;
+        for (int i = 0; i < queue.size(); i++) {
+            if (String.valueOf(queue.get(i).getId()).equals(String.valueOf(session.getAppointmentId()))) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        if (currentIndex < 0) {
+            return new QueueMeta(0, 0, queue.size(), false);
+        }
+
+        int aheadCount = 0;
+        for (int i = 0; i < currentIndex; i++) {
+            AppointmentQueueItemResponse appointment = queue.get(i);
+            TelemedicineSession earlierSession = telemedicineSessionRepository.findByAppointmentId(appointment.getId()).orElse(null);
+            if (earlierSession == null || earlierSession.getStatus() != SessionStatus.ENDED) {
+                aheadCount++;
+            }
+        }
+
+        return new QueueMeta(currentIndex + 1, aheadCount, queue.size(), aheadCount == 0);
+    }
+
+    private record QueueMeta(Integer position, Integer aheadCount, Integer total, Boolean isNext) {
     }
 }

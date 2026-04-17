@@ -2,6 +2,7 @@ package com.healthcare.appointmentservice.controller;
 
 import com.healthcare.appointmentservice.dto.ApiResponse;
 import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
+import com.healthcare.appointmentservice.dto.AppointmentQueueItemResponse;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
@@ -109,6 +110,15 @@ public class AppointmentController {
                 .success(true)
                 .message("Appointment fetched successfully")
                 .data(appointmentService.getAppointmentById(id))
+                .build();
+    }
+
+    @GetMapping("/{id}/slot-queue")
+    public ApiResponse<List<AppointmentQueueItemResponse>> getSlotQueueForAppointment(@PathVariable("id") Long id) {
+        return ApiResponse.<List<AppointmentQueueItemResponse>>builder()
+                .success(true)
+                .message("Slot queue fetched successfully")
+                .data(appointmentService.getSlotQueueForAppointment(id))
                 .build();
     }
 
