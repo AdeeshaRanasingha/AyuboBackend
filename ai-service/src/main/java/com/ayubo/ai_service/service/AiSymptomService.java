@@ -3,7 +3,9 @@ package com.ayubo.ai_service.service;
 import com.ayubo.ai_service.dto.AiRequest;
 import com.ayubo.ai_service.dto.AiResponse;
 import com.ayubo.ai_service.model.ChatMessage;
+import com.ayubo.ai_service.model.ChatSession;
 import com.ayubo.ai_service.repository.ChatMessageRepository;
+import com.ayubo.ai_service.repository.ChatSessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -25,28 +27,62 @@ public class AiSymptomService {
     private String geminiApiKey;
 
     @Autowired
-    private ChatMessageRepository chatRepository; // Inject the database!
+    private ChatMessageRepository chatRepository;
+
+    @Autowired
+    private ChatSessionRepository sessionRepository;
+
+    public ChatSession createNewSession(String patientId) {
+        ChatSession session = new ChatSession(patientId, "New Chat");
+        return sessionRepository.save(session);
+    }
+
+    public List<ChatSession> getSessionsForPatient(String patientId) {
+        return sessionRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+    }
+
+    public List<ChatMessage> getChatHistory(Long sessionId) {
+        return chatRepository.findBySessionIdOrderByTimestampAsc(sessionId);
+    }
 
     public AiResponse analyzeSymptoms(AiRequest request) {
         try {
-            // 1. SAVE THE USER'S MESSAGE TO DB
             String patientId = request.getPatientId() != null ? request.getPatientId() : "anonymous";
-            chatRepository.save(new ChatMessage(patientId, "USER", request.getMessage()));
+            Long sessionId = request.getSessionId();
+            System.out.println("[AI] patientId=" + patientId + " sessionId=" + sessionId + " key_present=" + (geminiApiKey != null && !geminiApiKey.isBlank()));
 
-            // 2. FETCH HISTORY & BUILD A TRANSCRIPT
-            List<ChatMessage> history = chatRepository.findByPatientIdOrderByTimestampAsc(patientId);
+            // Auto-create a session if none provided
+            if (sessionId == null) {
+                ChatSession newSession = createNewSession(patientId);
+                sessionId = newSession.getId();
+                System.out.println("[AI] Auto-created session id=" + sessionId);
+            }
+
+            chatRepository.save(new ChatMessage(patientId, sessionId, "USER", request.getMessage()));
+            System.out.println("[AI] Saved user message. Calling Gemini...");
+
+            // Build transcript from this session only
+            List<ChatMessage> history = chatRepository.findBySessionIdOrderByTimestampAsc(sessionId);
             StringBuilder transcript = new StringBuilder();
-
-            // We loop through the database history and format it like a script
             for (ChatMessage msg : history) {
                 String role = msg.getSender().equals("USER") ? "Patient" : "AI Assistant";
                 transcript.append(role).append(": ").append(msg.getMessage()).append("\n\n");
             }
 
-            // The Direct Google API endpoint
+            // Update session title from first user message (truncated)
+            if (history.size() == 1) {
+                String title = request.getMessage().length() > 40
+                        ? request.getMessage().substring(0, 40) + "..."
+                        : request.getMessage();
+                ChatSession session = sessionRepository.findById(sessionId).orElse(null);
+                if (session != null) {
+                    session.setTitle(title);
+                    sessionRepository.save(session);
+                }
+            }
+
             String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
 
-            // 3. THE ULTIMATE SYSTEM INSTRUCTION (Now with the secret Specialty Tag!)
             String systemInstruction =
                     "You are the Ayubo AI Symptom Checker. You are an empathetic, highly intelligent medical assistant.\n\n" +
                             "INSTRUCTIONS:\n" +
@@ -63,12 +99,8 @@ public class AiSymptomService {
                             "--------------------------------\n\n" +
                             "Please provide your next response as the AI Assistant:";
 
-            // Note: Removed + request.getMessage() because the transcript already has it!
-            String safePrompt = systemInstruction;
-
-            // 4. Build the exact JSON structure Google expects
             Map<String, Object> part = new HashMap<>();
-            part.put("text", safePrompt);
+            part.put("text", systemInstruction);
 
             Map<String, Object> content = new HashMap<>();
             content.put("parts", Collections.singletonList(part));
@@ -76,62 +108,50 @@ public class AiSymptomService {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("contents", Collections.singletonList(content));
 
-            // 5. Send the request directly to Google!
             RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            // Wait for the native response
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
-            // 6. Unpack the AI's reply from the JSON block
             Map<String, Object> body = response.getBody();
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) body.get("candidates");
             Map<String, Object> resContent = (Map<String, Object>) candidates.get(0).get("content");
             List<Map<String, Object>> resParts = (List<Map<String, Object>>) resContent.get("parts");
             String rawAiReply = (String) resParts.get(0).get("text");
 
-            // 7. EXTRACT THE SPECIALTY AND CLEAN THE MESSAGE
             String displayReply = rawAiReply;
             String specialty = "None";
 
             if (rawAiReply.contains("SPECIALTY_NEEDED:")) {
                 String[] splitReply = rawAiReply.split("SPECIALTY_NEEDED:");
-                displayReply = splitReply[0].trim(); // This is the clean message for the patient
+                displayReply = splitReply[0].trim();
                 if (splitReply.length > 1) {
-                    specialty = splitReply[1].trim();    // This is the hidden tag (e.g., "Cardiologist")
+                    specialty = splitReply[1].trim();
                 }
             }
 
-            // 8. SAVE THE CLEAN AI REPLY TO DB (We don't save the secret tag to the database!)
-            chatRepository.save(new ChatMessage(patientId, "AI", displayReply));
+            chatRepository.save(new ChatMessage(patientId, sessionId, "AI", displayReply));
 
-            // 9. FETCH DOCTORS FROM YOUR DATABASE BASED ON SPECIALTY
             List<Map<String, String>> doctors = fetchDoctorsFromDatabase(specialty);
 
-            // Return both the text and the list of doctors
             return new AiResponse(displayReply, doctors);
 
         } catch (Exception e) {
-            System.err.println("AI FETCH ERROR: " + e.getMessage());
-            // Return an empty array of doctors if it fails
+            System.out.println("=== AI FETCH ERROR ===");
+            System.out.println("Type: " + e.getClass().getName());
+            System.out.println("Message: " + e.getMessage());
+            e.printStackTrace(System.out);
             return new AiResponse("Sorry, I am having a bit of trouble connecting right now. Please try again!", Collections.emptyList());
         }
     }
 
-    // NEW METHOD TO FETCH HISTORY
-    public List<ChatMessage> getChatHistory(String patientId) {
-        return chatRepository.findByPatientIdOrderByTimestampAsc(patientId);
-    }
-
-    // MOCK DATABASE CALL - Replace with your actual Doctor Repository later!
     private List<Map<String, String>> fetchDoctorsFromDatabase(String specialty) {
         if (specialty.equalsIgnoreCase("None") || specialty.isEmpty()) {
-            return Collections.emptyList(); // Send no doctors if the AI says 'None'
+            return Collections.emptyList();
         }
 
-        // Just an example! If AI says "Cardiologist", it sends this doctor.
         if (specialty.toLowerCase().contains("cardiologist")) {
             return List.of(Map.of("name", "Dr. Kamal Perera", "specialty", "Cardiologist", "hospital", "Asiri Hospital"));
         } else if (specialty.toLowerCase().contains("general practitioner")) {
@@ -140,7 +160,6 @@ public class AiSymptomService {
             return List.of(Map.of("name", "Dr. Saman Kumara", "specialty", "Dermatologist", "hospital", "Lanka Hospitals"));
         }
 
-        // Default fallback doctor if the specialty isn't in our mock list but the AI suggested one
         return List.of(Map.of("name", "Dr. Amara Wijesinghe", "specialty", specialty, "hospital", "Hemas Hospital"));
     }
 }
