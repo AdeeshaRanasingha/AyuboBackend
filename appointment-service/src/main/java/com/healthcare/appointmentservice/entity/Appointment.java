@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "appoinment")
+@Table(name = "appoinment") // Note: "appointment" is misspelled here, keeping it as is so your DB doesn't break!
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -83,6 +83,9 @@ public class Appointment {
     @Column(name = "note_or_address", length = 255)
     private String noteOrAddress;
 
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
     @Column(name = "on_going_number")
     private Boolean onGoingNumber;
 
@@ -92,6 +95,16 @@ public class Appointment {
 
     @Column(name = "payment_status", length = 50)
     private String paymentStatus;
+
+    @Column(name = "total_price", precision = 10, scale = 2)
+    private BigDecimal totalPrice;
+
+    @Column(name = "prescription_name", length = 255)
+    private String prescriptionName;
+
+    @Lob
+    @Column(name = "prescription_data", columnDefinition = "LONGTEXT")
+    private String prescriptionData;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

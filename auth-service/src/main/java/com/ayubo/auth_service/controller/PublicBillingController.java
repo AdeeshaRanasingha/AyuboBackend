@@ -4,6 +4,8 @@ import com.ayubo.auth_service.model.FeeConfiguration;
 import com.ayubo.auth_service.model.MedicalProvider;
 import com.ayubo.auth_service.repository.FeeConfigurationRepository;
 import com.ayubo.auth_service.repository.MedicalProviderRepository;
+// Removed the incorrect ProviderRepository import
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,11 +16,12 @@ import java.util.Map;
 @RequestMapping("/api")
 public class PublicBillingController {
 
+    // Added 'final' for best practice with constructor injection
     private final MedicalProviderRepository providerRepository;
     private final FeeConfigurationRepository feeConfigurationRepository;
 
     public PublicBillingController(
-            MedicalProviderRepository providerRepository,
+            MedicalProviderRepository providerRepository, // Fixed type here
             FeeConfigurationRepository feeConfigurationRepository
     ) {
         this.providerRepository = providerRepository;

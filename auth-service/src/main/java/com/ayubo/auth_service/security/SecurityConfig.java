@@ -29,6 +29,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout", "/api/provider/directory", "/api/provider/*/billing-summary", "/api/public/fees", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/schedule/doctor/*/public-slots").permitAll()
                         .requestMatchers("/api/provider/**").hasRole("PROVIDER")
+                        .requestMatchers(HttpMethod.GET, "/api/patient/patient/*").hasAnyRole("PATIENT", "PROVIDER", "ADMIN")
                         .requestMatchers("/api/patient/**").hasRole("PATIENT")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
