@@ -8,4 +8,6 @@ import org.springframework.stereotype.Repository;
 public interface TransactionRepository extends JpaRepository<TransactionRecord, Long> {
 
     TransactionRecord findByStripeSessionId(String stripeSessionId);
+
+    TransactionRecord findTopByAppointmentIdOrderByCreatedAtDesc(Long appointmentId);
 }

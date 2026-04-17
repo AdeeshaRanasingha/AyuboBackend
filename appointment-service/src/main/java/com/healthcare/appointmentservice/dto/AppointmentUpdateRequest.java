@@ -48,9 +48,5 @@ public class AppointmentUpdateRequest {
     @Size(max = 255, message = "noteOrAddress must not exceed 255 characters")
     private String noteOrAddress;
 
-    private Boolean noShowRefund;
-
     private Boolean onGoingNumber;
-
-    private BigDecimal totalPrice;
 }

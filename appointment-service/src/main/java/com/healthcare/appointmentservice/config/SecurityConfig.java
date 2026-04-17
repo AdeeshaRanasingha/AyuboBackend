@@ -6,8 +6,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.MediaType;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -34,7 +34,6 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http.csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .sessionManagement(session ->
@@ -45,18 +44,25 @@ public class SecurityConfig {
                             "/swagger-ui.html",
                             "/v3/api-docs/**"
                     ).permitAll();
+
                     auth.requestMatchers(HttpMethod.POST, "/api/appointments").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/appointments/doctor/*/available-slots").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/appointments/public/*").permitAll();
                     auth.requestMatchers(HttpMethod.PATCH, "/api/appointments/*/payment-status/paid").permitAll();
+                    auth.requestMatchers(HttpMethod.PATCH, "/api/appointments/*/payment-status").permitAll();
+
                     if (devTokenEndpointEnabled) {
                         auth.requestMatchers("/api/dev/issue-token").permitAll();
                     }
+
                     auth.requestMatchers("/api/appointments/**").authenticated();
                     auth.anyRequest().authenticated();
                 })
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> writeJson(response, 401, "Authentication required"))
-                        .accessDeniedHandler((request, response, accessDeniedException) -> writeJson(response, 403, accessDeniedException.getMessage()))
+                        .authenticationEntryPoint((request, response, authException) ->
+                                writeJson(response, 401, "Authentication required"))
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                writeJson(response, 403, accessDeniedException.getMessage()))
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -67,11 +73,13 @@ public class SecurityConfig {
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+
         ApiResponse<Object> body = ApiResponse.builder()
                 .success(false)
                 .message(message)
                 .data(null)
                 .build();
+
         response.getWriter().write(OBJECT_MAPPER.writeValueAsString(body));
     }
 }

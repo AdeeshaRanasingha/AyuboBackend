@@ -7,6 +7,8 @@ import com.healthcare.appointmentservice.dto.AppointmentCreateRequest;
 import com.healthcare.appointmentservice.dto.AppointmentResponse;
 import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.NotificationRequest;
+import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
+import com.healthcare.appointmentservice.dto.SlotStatusResponse;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
 import com.healthcare.appointmentservice.entity.Appointment;
 import com.healthcare.appointmentservice.entity.AppointmentStatus;
@@ -19,26 +21,20 @@ import com.healthcare.appointmentservice.service.AppointmentService;
 import com.healthcare.appointmentservice.service.ProviderDoctorResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
-import org.springframework.web.multipart.MultipartFile;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.io.File;
-import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
@@ -48,12 +44,16 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final NotificationServiceClient notificationServiceClient;
     private final DoctorScheduleSlotClient doctorScheduleSlotClient;
     private final ProviderDoctorResolver providerDoctorResolver;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${app.frontend-base-url:http://localhost:5173}")
     private String frontendBaseUrl;
 
     @Value("${app.payment-link:${app.frontend-base-url:http://localhost:5173}/patient-dashboard}")
     private String paymentLink;
+
+    @Value("${app.auth-schedule-db-name:ayubo_auth_db}")
+    private String authScheduleDbName;
 
     @Override
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
@@ -62,13 +62,27 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         validateTimeRange(request.getStartTime(), request.getEndTime());
 
-        appointmentRepository.findByDoctorIdAndAppointmentDateAndStartTime(
+        int maxPatientsForSlot = resolveMaxPatientsForSlot(
                 request.getDoctorId(),
                 request.getAppointmentDate(),
                 request.getStartTime()
-        ).ifPresent(existing -> {
-            throw new BadRequestException("This slot is already booked for the selected doctor");
-        });
+        );
+
+        long activeBookings = appointmentRepository.countByDoctorIdAndAppointmentDateAndStartTimeAndStatusIn(
+                request.getDoctorId(),
+                request.getAppointmentDate(),
+                request.getStartTime(),
+                List.of(
+                        AppointmentStatus.PENDING_PAYMENT,
+                        AppointmentStatus.CONFIRMED,
+                        AppointmentStatus.COMPLETED,
+                        AppointmentStatus.RESCHEDULED
+                )
+        );
+
+        if (activeBookings >= maxPatientsForSlot) {
+            throw new BadRequestException("This slot is sold out for the selected doctor");
+        }
 
         Appointment appointment = Appointment.builder()
                 .appointmentNumber(generateAppointmentNumber())
@@ -89,13 +103,10 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .endTime(request.getEndTime())
                 .reason(request.getReason())
                 .noteOrAddress(request.getNoteOrAddress())
-                .noShowRefund(Boolean.TRUE.equals(request.getNoShowRefund()))
                 .onGoingNumber(Boolean.TRUE.equals(request.getOnGoingNumber()))
+                .slotId(resolveSlotId(request.getDoctorId(), request.getAppointmentDate(), request.getStartTime(), request.getSlotId()))
                 .status(AppointmentStatus.PENDING_PAYMENT)
                 .paymentStatus("PENDING")
-                .notes("Appointment created successfully")
-                .cancelReason(null)
-                .rescheduleCount(0)
                 .build();
 
         Appointment saved = appointmentRepository.save(appointment);
@@ -103,41 +114,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         sendAppointmentCreatedNotification(saved);
 
         return mapToResponse(saved);
-    }
-
-    @Override
-    public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
-        // 1. Find the appointment
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
-
-        try {
-            // 2. Create an "uploads/prescriptions" folder in your project root if it doesn't exist
-            String uploadDir = "uploads/prescriptions/";
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-
-            // 3. Generate a safe, unique file name (e.g., 15_17123456_prescription.pdf)
-            String fileName = appointmentId + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            Path filePath = Paths.get(uploadDir + fileName);
-
-            // 4. Save the file to the folder
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // 5. Save the URL path in the database so the patient can download it later
-            appointment.setPrescriptionUrl("/uploads/prescriptions/" + fileName);
-
-            // Optional: Automatically mark appointment as completed when prescription is given
-            appointment.setStatus(AppointmentStatus.COMPLETED);
-
-            appointment = appointmentRepository.save(appointment);
-            return mapToResponse(appointment);
-
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store prescription file", e);
-        }
     }
 
     @Override
@@ -154,7 +130,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointmentRepository.findByPatientEmailIgnoreCase(email)
                 .stream()
                 .map(this::mapToResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -167,7 +143,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointmentRepository.findByDoctorId(doctorId)
                 .stream()
                 .map(this::mapToResponse)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -191,15 +167,24 @@ public class AppointmentServiceImpl implements AppointmentService {
                 || !newStartTime.equals(appointment.getStartTime())
                 || !newEndTime.equals(appointment.getEndTime());
 
-        appointmentRepository.findByDoctorIdAndAppointmentDateAndStartTime(
-                appointment.getDoctorId(),
-                newDate,
-                newStartTime
-        ).ifPresent(existing -> {
-            if (!existing.getId().equals(appointment.getId())) {
-                throw new BadRequestException("Requested new slot is already booked");
+        if (scheduleChanged) {
+            int maxPatientsForSlot = resolveMaxPatientsForSlot(appointment.getDoctorId(), newDate, newStartTime);
+            long activeBookings = appointmentRepository.countByDoctorIdAndAppointmentDateAndStartTimeAndStatusInAndIdNot(
+                    appointment.getDoctorId(),
+                    newDate,
+                    newStartTime,
+                    List.of(
+                            AppointmentStatus.PENDING_PAYMENT,
+                            AppointmentStatus.CONFIRMED,
+                            AppointmentStatus.COMPLETED,
+                            AppointmentStatus.RESCHEDULED
+                    ),
+                    appointment.getId()
+            );
+            if (activeBookings >= maxPatientsForSlot) {
+                throw new BadRequestException("Requested new slot is sold out");
             }
-        });
+        }
 
         appointment.setAppointmentDate(newDate);
         appointment.setStartTime(newStartTime);
@@ -245,20 +230,12 @@ public class AppointmentServiceImpl implements AppointmentService {
             appointment.setNoteOrAddress(request.getNoteOrAddress());
         }
 
-        if (request.getNoShowRefund() != null) {
-            appointment.setNoShowRefund(request.getNoShowRefund());
-        }
-
         if (request.getOnGoingNumber() != null) {
             appointment.setOnGoingNumber(request.getOnGoingNumber());
         }
 
         if (scheduleChanged) {
             appointment.setStatus(AppointmentStatus.RESCHEDULED);
-            appointment.setRescheduleCount(appointment.getRescheduleCount() + 1);
-            appointment.setNotes("Appointment rescheduled");
-        } else {
-            appointment.setNotes("Appointment details updated");
         }
 
         Appointment updated = appointmentRepository.save(appointment);
@@ -299,8 +276,28 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         validateStatusTransition(appointment.getStatus(), newStatus);
 
+        if (newStatus == AppointmentStatus.CONFIRMED && appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            int maxPatientsForSlot = resolveMaxPatientsForSlot(
+                    appointment.getDoctorId(),
+                    appointment.getAppointmentDate(),
+                    appointment.getStartTime()
+            );
+            long alreadyConfirmed = appointmentRepository.countByDoctorIdAndAppointmentDateAndStartTimeAndStatusIn(
+                    appointment.getDoctorId(),
+                    appointment.getAppointmentDate(),
+                    appointment.getStartTime(),
+                    List.of(
+                            AppointmentStatus.CONFIRMED,
+                            AppointmentStatus.COMPLETED,
+                            AppointmentStatus.RESCHEDULED
+                    )
+            );
+            if (alreadyConfirmed >= maxPatientsForSlot) {
+                throw new BadRequestException("Cannot confirm: slot is already sold out");
+            }
+        }
+
         appointment.setStatus(newStatus);
-        appointment.setNotes(request.getNotes());
 
         Appointment updated = appointmentRepository.save(appointment);
 
@@ -331,6 +328,11 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     public void cancelAppointment(Long id, String cancelReason) {
+        cancelAppointment(id);
+    }
+
+    @Override
+    public void cancelAppointment(Long id) {
         Appointment appointment = findAppointmentById(id);
         assertCanModifyAppointmentAsPatientOrProvider(appointment);
 
@@ -339,9 +341,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointment.setCancelReason(cancelReason != null ? cancelReason : "Cancelled by user");
-        appointment.setNotes("Appointment cancelled");
-
         appointmentRepository.save(appointment);
 
         sendSimpleNotification(
@@ -352,12 +351,12 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     @Override
-    public List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
+    public List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
         LocalDate anchor = parseSlotDate(date);
         if (!forCurrentMonth) {
             List<Appointment> bookedAppointments =
                     appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, anchor);
-            return buildAvailableSlotTimesForDay(doctorId, anchor, bookedAppointments);
+            return buildAvailableSlotResponsesForDay(doctorId, anchor, bookedAppointments);
         }
 
         LocalDate monthStart = anchor.withDayOfMonth(1);
@@ -368,68 +367,75 @@ public class AppointmentServiceImpl implements AppointmentService {
                 monthEnd
         );
 
-        Map<LocalDate, Map<String, Long>> bookedByDay = monthBookings.stream()
-                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED
-                        && a.getStatus() != AppointmentStatus.REJECTED)
-                .collect(Collectors.groupingBy(
-                        Appointment::getAppointmentDate,
-                        Collectors.groupingBy(
-                                a -> a.getStartTime().toString().substring(0, 5),
-                                Collectors.counting()
-                        )
-                ));
+        Map<LocalDate, List<Appointment>> bookingsByDay = monthBookings.stream()
+                .collect(Collectors.groupingBy(Appointment::getAppointmentDate));
 
-        List<String> combined = new ArrayList<>();
+        List<SlotStatusResponse> combined = new ArrayList<>();
         for (LocalDate d = monthStart; !d.isAfter(monthEnd); d = d.plusDays(1)) {
-            Map<String, Long> bookedForDay = bookedByDay.getOrDefault(d, Map.of());
-            for (String time : buildAvailableSlotTimesForDay(doctorId, d, bookedForDay)) {
-                combined.add(d + " " + time);
+            List<Appointment> bookedForDay = bookingsByDay.getOrDefault(d, Collections.emptyList());
+            for (SlotStatusResponse res : buildAvailableSlotResponsesForDay(doctorId, d, bookedForDay)) {
+                SlotStatusResponse prefixed = SlotStatusResponse.builder()
+                        .startTime(d + " " + res.getStartTime())
+                        .maxPatients(res.getMaxPatients())
+                        .availableSlots(res.getAvailableSlots())
+                        .status(res.getStatus())
+                        .build();
+                combined.add(prefixed);
             }
         }
-        combined.sort(String::compareTo);
         return combined;
     }
 
-    private List<String> buildAvailableSlotTimesForDay(
+    @Override
+    public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
+        return null;
+    }
+
+    /**
+     * Returns list of slot responses for {@code day}, using auth schedule capacity
+     * minus confirmed appointments for that day.
+     */
+    private List<SlotStatusResponse> buildAvailableSlotResponsesForDay(
             long doctorId,
             LocalDate day,
             List<Appointment> bookedAppointmentsForDay
     ) {
-        Map<String, Long> bookedCountBySlot = bookedAppointmentsForDay.stream()
-                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED
-                        && a.getStatus() != AppointmentStatus.REJECTED)
+        Map<String, Long> confirmedCountBySlot = bookedAppointmentsForDay.stream()
+                .filter(a -> a.getStatus() == AppointmentStatus.CONFIRMED
+                        || a.getStatus() == AppointmentStatus.COMPLETED
+                        || a.getStatus() == AppointmentStatus.RESCHEDULED)
                 .collect(Collectors.groupingBy(
                         a -> a.getStartTime().toString().substring(0, 5),
                         Collectors.counting()
                 ));
-        return buildAvailableSlotTimesForDay(doctorId, day, bookedCountBySlot);
-    }
 
-    private List<String> buildAvailableSlotTimesForDay(
-            long doctorId,
-            LocalDate day,
-            Map<String, Long> bookedCountBySlot
-    ) {
         List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, day.toString());
-        Map<String, Integer> capacityByStart = new LinkedHashMap<>();
+        List<SlotStatusResponse> responses = new ArrayList<>();
+
         for (AuthScheduleSlotRow row : scheduledRows) {
-            if (row.startTime() == null || row.startTime().isBlank()) {
+            if (row.startTime() == null || row.startTime().trim().isEmpty()) {
                 continue;
             }
             String slotKey = normalizeSlotTimeKey(row.startTime());
-            int cap = row.maxPatients() != null && row.maxPatients() > 0 ? row.maxPatients() : 1;
-            capacityByStart.merge(slotKey, cap, Integer::max);
+            int maxCap = row.maxPatients() != null && row.maxPatients() > 0 ? row.maxPatients() : 1;
+            long confirmedCount = confirmedCountBySlot.getOrDefault(slotKey, 0L);
+            long available = maxCap - confirmedCount;
+            if (available < 0) {
+                available = 0;
+            }
+
+            String status = available > 0 ? "AVAILABLE" : "SOLD OUT";
+
+            responses.add(SlotStatusResponse.builder()
+                    .startTime(slotKey)
+                    .maxPatients(maxCap)
+                    .availableSlots(available)
+                    .status(status)
+                    .build());
         }
 
-        if (capacityByStart.isEmpty()) {
-            return List.of();
-        }
-
-        return capacityByStart.entrySet().stream()
-                .filter(e -> bookedCountBySlot.getOrDefault(e.getKey(), 0L) < e.getValue())
-                .map(Map.Entry::getKey)
-                .sorted()
-                .toList();
+        responses.sort((a, b) -> a.getStartTime().compareTo(b.getStartTime()));
+        return responses;
     }
 
     private static String normalizeSlotTimeKey(String raw) {
@@ -437,8 +443,47 @@ public class AppointmentServiceImpl implements AppointmentService {
         return s.length() >= 5 ? s.substring(0, 5) : s;
     }
 
+    private int resolveMaxPatientsForSlot(long doctorId, LocalDate day, LocalTime startTime) {
+        String slotKey = normalizeSlotTimeKey(startTime.toString());
+        List<AuthScheduleSlotRow> scheduledRows = doctorScheduleSlotClient.fetchScheduledSlots(doctorId, day.toString());
+        for (AuthScheduleSlotRow row : scheduledRows) {
+            if (row.startTime() == null || row.startTime().trim().isEmpty()) {
+                continue;
+            }
+            String candidate = normalizeSlotTimeKey(row.startTime());
+            if (slotKey.equals(candidate)) {
+                Integer maxPatients = row.maxPatients();
+                return maxPatients != null && maxPatients > 0 ? maxPatients : 1;
+            }
+        }
+        throw new BadRequestException("Selected slot is not available for the chosen date");
+    }
+
+    private Long resolveSlotId(Long doctorId, LocalDate day, LocalTime startTime, Long requestedSlotId) {
+        if (requestedSlotId != null) {
+            return requestedSlotId;
+        }
+        String tableName = authScheduleDbName + ".doctor_schedule_slots";
+        String sql = "SELECT id FROM " + tableName + " " +
+                "WHERE provider_id = ? " +
+                "AND (slot_date = ? OR date = ?) " +
+                "AND (start_time = ? OR start_time = CONCAT(?, ':00')) " +
+                "ORDER BY id DESC LIMIT 1";
+        String normalizedTime = normalizeSlotTimeKey(startTime.toString());
+        List<Long> ids = jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> rs.getLong("id"),
+                doctorId,
+                day,
+                day.toString(),
+                normalizedTime,
+                normalizedTime
+        );
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
     private LocalDate parseSlotDate(String raw) {
-        if (raw == null || raw.isBlank()) {
+        if (raw == null || raw.trim().isEmpty()) {
             throw new BadRequestException("date is required");
         }
         String trimmed = raw.trim();
@@ -513,9 +558,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         return "APT-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
 
-    // ==========================================
-    // UPDATED MAPPER - ADDS PRESCRIPTION URL
-    // ==========================================
     private AppointmentResponse mapToResponse(Appointment appointment) {
         return AppointmentResponse.builder()
                 .id(appointment.getId())
@@ -537,20 +579,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .endTime(appointment.getEndTime())
                 .reason(appointment.getReason())
                 .noteOrAddress(appointment.getNoteOrAddress())
-                .noShowRefund(appointment.getNoShowRefund())
                 .onGoingNumber(appointment.getOnGoingNumber())
+                .slotId(appointment.getSlotId())
                 .status(appointment.getStatus().name())
                 .paymentStatus(appointment.getPaymentStatus())
-                .totalPrice(appointment.getTotalPrice())
-                .notes(appointment.getNotes())
-                .cancelReason(appointment.getCancelReason())
-                .rescheduleCount(appointment.getRescheduleCount())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
-
-                // ✅ This makes sure React receives the URL!
-                .prescriptionUrl(appointment.getPrescriptionUrl())
-
                 .build();
     }
 
@@ -600,7 +634,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private String patientName(Appointment appointment) {
-        if (appointment.getPatientName() != null && !appointment.getPatientName().isBlank()) {
+        if (appointment.getPatientName() != null && !appointment.getPatientName().trim().isEmpty()) {
             return appointment.getPatientName().trim();
         }
         return "Patient";
@@ -617,7 +651,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private String normalizeContactEmail(String requestedEmail, String fallbackEmail) {
-        if (requestedEmail == null || requestedEmail.isBlank()) {
+        if (requestedEmail == null || requestedEmail.trim().isEmpty()) {
             return fallbackEmail;
         }
         return requestedEmail.trim();
@@ -627,21 +661,27 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (SecurityUtils.hasRole("PATIENT")) {
             return SecurityUtils.requireCurrentUserEmail();
         }
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
+        if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
             return request.getEmail().trim();
         }
         return "guest-" + UUID.randomUUID().toString().substring(0, 8) + "@ayubo.local";
     }
 
     private String notificationRecipient(Appointment appointment) {
-        if (appointment.getContactEmail() != null && !appointment.getContactEmail().isBlank()) {
+        if (appointment.getContactEmail() != null && !appointment.getContactEmail().trim().isEmpty()) {
             return appointment.getContactEmail();
         }
         return appointment.getPatientEmail();
     }
 
+    /**
+     * Normalizes common Sri Lankan formats to E.164 required by SMS providers:
+     * - 07XXXXXXXX -> +947XXXXXXXX
+     * - 94XXXXXXXXX -> +94XXXXXXXXX
+     * - +94XXXXXXXXX -> +94XXXXXXXXX
+     */
     private String normalizeSriLankanPhone(String rawPhone) {
-        if (rawPhone == null || rawPhone.isBlank()) {
+        if (rawPhone == null || rawPhone.trim().isEmpty()) {
             return null;
         }
 
@@ -659,5 +699,31 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         return cleaned;
+    }
+
+    @Override
+    public AppointmentResponse getAppointmentPublic(Long id) {
+        Appointment appointment = findAppointmentById(id);
+        return mapToResponse(appointment);
+    }
+
+    @Override
+    public AppointmentResponse updatePaymentStatus(Long id, PaymentStatusUpdateRequest request) {
+        Appointment appointment = findAppointmentById(id);
+
+        if (request.getPaymentStatus() != null && !request.getPaymentStatus().isBlank()) {
+            appointment.setPaymentStatus(request.getPaymentStatus().trim().toUpperCase());
+        }
+
+        if (request.getTotalPrice() != null) {
+            appointment.setTotalPrice(request.getTotalPrice().setScale(2, java.math.RoundingMode.HALF_UP));
+        }
+
+        if (request.getNotes() != null && !request.getNotes().isBlank()) {
+            appointment.setNotes(request.getNotes().trim());
+        }
+
+        Appointment updated = appointmentRepository.save(appointment);
+        return mapToResponse(updated);
     }
 }

@@ -6,10 +6,9 @@ public class PaymentRequest {
     private Double amount;
     private String patientEmail;
 
-    // Default constructor (Spring Boot needs this to convert React's JSON)
-    public PaymentRequest() {}
+    public PaymentRequest() {
+    }
 
-    // --- Getters and Setters ---
     public Long getAppointmentId() {
         return appointmentId;
     }

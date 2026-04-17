@@ -13,6 +13,7 @@ if %errorlevel% neq 0 (
 )
 
 echo Starting service on port 8082...
+set "SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/ayubo_appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
 java -jar target\appointment-service-0.0.1-SNAPSHOT.jar
 
 pause

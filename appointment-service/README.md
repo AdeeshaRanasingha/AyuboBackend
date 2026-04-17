@@ -23,7 +23,7 @@
 ## Run locally
 
 ### 1. Create MySQL DB
-Database name: `appointment_db`
+Database name: `ayubo_appointment_db`
 
 ### 2. Update `application.yml`
 Set your MySQL username/password.
