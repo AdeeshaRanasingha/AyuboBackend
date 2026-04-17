@@ -32,5 +32,5 @@ public interface AppointmentService {
 
     AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file);
 
-    List<String> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
+    List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
 }

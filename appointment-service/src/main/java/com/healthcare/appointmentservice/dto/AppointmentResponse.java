@@ -41,6 +41,6 @@ public class AppointmentResponse {
     private BigDecimal totalPrice;
     private String notes;
 
-    // ✅ ADDED THIS LINE SO REACT CAN SEE THE URL
-    private String prescriptionUrl;
+    private String prescriptionName;
+    private String prescriptionData;
 }
