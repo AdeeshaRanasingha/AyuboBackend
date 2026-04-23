@@ -58,7 +58,7 @@ public class AppointmentController {
     @PostMapping(value = "/{id}/prescription", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('PROVIDER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse> uploadPrescription(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestParam("file") MultipartFile file) {
 
         AppointmentResponse updatedAppointment = appointmentService.uploadPrescription(id, file);

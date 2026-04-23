@@ -38,6 +38,9 @@ public class AppointmentResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // ✅ ADDED THIS LINE SO REACT CAN SEE THE URL
-    private String prescriptionUrl;
+    private BigDecimal totalPrice;
+    private String notes;
+
+    private String prescriptionName;
+    private String prescriptionData;
 }

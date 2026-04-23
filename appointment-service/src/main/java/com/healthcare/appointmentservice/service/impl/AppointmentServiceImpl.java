@@ -375,6 +375,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Override
     public List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth) {
         LocalDate anchor = parseSlotDate(date);
+
         if (!forCurrentMonth) {
             List<Appointment> bookedAppointments =
                     appointmentRepository.findByDoctorIdAndAppointmentDate(doctorId, anchor);
@@ -383,6 +384,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         LocalDate monthStart = anchor.withDayOfMonth(1);
         LocalDate monthEnd = anchor.withDayOfMonth(anchor.lengthOfMonth());
+
         List<Appointment> monthBookings = appointmentRepository.findByDoctorIdAndAppointmentDateBetween(
                 doctorId,
                 monthStart,
@@ -393,24 +395,46 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .collect(Collectors.groupingBy(Appointment::getAppointmentDate));
 
         List<SlotStatusResponse> combined = new ArrayList<>();
+
         for (LocalDate d = monthStart; !d.isAfter(monthEnd); d = d.plusDays(1)) {
             List<Appointment> bookedForDay = bookingsByDay.getOrDefault(d, Collections.emptyList());
             for (SlotStatusResponse res : buildAvailableSlotResponsesForDay(doctorId, d, bookedForDay)) {
-                SlotStatusResponse prefixed = SlotStatusResponse.builder()
+                combined.add(SlotStatusResponse.builder()
                         .startTime(d + " " + res.getStartTime())
                         .maxPatients(res.getMaxPatients())
                         .availableSlots(res.getAvailableSlots())
                         .status(res.getStatus())
-                        .build();
-                combined.add(prefixed);
+                        .build());
             }
         }
+
         return combined;
     }
 
     @Override
     public AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file) {
-        return null;
+        SecurityUtils.requireProvider();
+        Appointment appointment = findAppointmentById(appointmentId);
+        Long mappedDoctorId = requireDoctorIdForProvider(SecurityUtils.requireCurrentUserEmail());
+        if (!mappedDoctorId.equals(appointment.getDoctorId())) {
+            throw new ForbiddenException("You cannot upload a prescription for this appointment");
+        }
+        try {
+            String mimeType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
+            String base64 = java.util.Base64.getEncoder().encodeToString(file.getBytes());
+            String dataUri = "data:" + mimeType + ";base64," + base64;
+
+            String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "prescription";
+            appointment.setPrescriptionName(filename);
+            appointment.setPrescriptionData(dataUri);
+
+            Appointment updated = appointmentRepository.save(appointment);
+            return mapToResponse(updated);
+        } catch (ForbiddenException fe) {
+            throw fe;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save prescription: " + e.getMessage());
+        }
     }
 
     /**
@@ -618,6 +642,10 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .slotId(appointment.getSlotId())
                 .status(appointment.getStatus().name())
                 .paymentStatus(appointment.getPaymentStatus())
+                .totalPrice(appointment.getTotalPrice())
+                .notes(appointment.getNotes())
+                .prescriptionName(appointment.getPrescriptionName())
+                .prescriptionData(appointment.getPrescriptionData())
                 .createdAt(appointment.getCreatedAt())
                 .updatedAt(appointment.getUpdatedAt())
                 .build();
@@ -775,4 +803,5 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment updated = appointmentRepository.save(appointment);
         return mapToResponse(updated);
     }
+
 }

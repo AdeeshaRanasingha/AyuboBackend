@@ -7,6 +7,7 @@ import com.healthcare.appointmentservice.dto.AppointmentUpdateRequest;
 import com.healthcare.appointmentservice.dto.PaymentStatusUpdateRequest;
 import com.healthcare.appointmentservice.dto.SlotStatusResponse;
 import com.healthcare.appointmentservice.dto.StatusUpdateRequest;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -36,7 +37,7 @@ public interface AppointmentService {
 
     void cancelAppointment(Long id);
 
-    List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
+    AppointmentResponse uploadPrescription(Long appointmentId, MultipartFile file);
 
-    AppointmentResponse uploadPrescription(Long appointmentId, org.springframework.web.multipart.MultipartFile file);
+    List<SlotStatusResponse> getAvailableSlots(Long doctorId, String date, boolean forCurrentMonth);
 }

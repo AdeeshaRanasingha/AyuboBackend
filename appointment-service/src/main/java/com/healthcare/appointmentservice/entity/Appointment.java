@@ -83,8 +83,7 @@ public class Appointment {
     @Column(name = "note_or_address", length = 255)
     private String noteOrAddress;
 
-    // ADDED: To fix the 'setNotes' missing method error in AppointmentServiceImpl
-    @Column(name = "notes", length = 1000)
+    @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
     @Column(name = "on_going_number")
@@ -97,18 +96,21 @@ public class Appointment {
     @Column(name = "payment_status", length = 50)
     private String paymentStatus;
 
-    // ADDED: To fix the 'setTotalPrice' missing method error in AppointmentServiceImpl
     @Column(name = "total_price", precision = 10, scale = 2)
     private BigDecimal totalPrice;
+
+    @Column(name = "prescription_name", length = 255)
+    private String prescriptionName;
+
+    @Lob
+    @Column(name = "prescription_data", columnDefinition = "LONGTEXT")
+    private String prescriptionData;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    @Column(name = "prescription_url")
-    private String prescriptionUrl;
 
     @PrePersist
     public void prePersist() {
