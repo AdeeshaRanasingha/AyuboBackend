@@ -29,8 +29,8 @@ public class DoctorScheduleSlotClient {
     public DoctorScheduleSlotClient(
             @Qualifier("authRestClient") RestClient authRestClient,
             @Qualifier("authFallbackRestClient") RestClient authFallbackRestClient,
-            @Value("${services.auth.base-url:http://localhost:8085}") String authBaseUrl,
-            @Value("${services.auth.fallback-base-url:http://host.docker.internal:8085}") String authFallbackBaseUrl
+            @Value("${services.auth.base-url:http://localhost:8090}") String authBaseUrl,
+            @Value("${services.auth.fallback-base-url:http://host.docker.internal:8090}") String authFallbackBaseUrl
     ) {
         this.authRestClient = authRestClient;
         this.authFallbackRestClient = authFallbackRestClient;

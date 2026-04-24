@@ -24,13 +24,11 @@ public class AppointmentSchemaFixer {
     private void dropLegacyUniqueIndexIfPresent() {
         try {
             Integer count = jdbcTemplate.queryForObject(
-                    """
-                    SELECT COUNT(1)
-                    FROM information_schema.statistics
-                    WHERE table_schema = DATABASE()
-                      AND table_name = 'appoinment'
-                      AND index_name = 'uk_doctor_date_starttime'
-                    """,
+                    "SELECT COUNT(1) " +
+                    "FROM information_schema.statistics " +
+                    "WHERE table_schema = DATABASE() " +
+                    "  AND table_name = 'appoinment' " +
+                    "  AND index_name = 'uk_doctor_date_starttime'",
                     Integer.class
             );
             if (count != null && count > 0) {
@@ -50,13 +48,11 @@ public class AppointmentSchemaFixer {
     private void addColumnIfAbsent(String columnName, String alterSql) {
         try {
             Integer count = jdbcTemplate.queryForObject(
-                    """
-                    SELECT COUNT(1)
-                    FROM information_schema.columns
-                    WHERE table_schema = DATABASE()
-                      AND table_name   = 'appoinment'
-                      AND column_name  = ?
-                    """,
+                    "SELECT COUNT(1) " +
+                    "FROM information_schema.columns " +
+                    "WHERE table_schema = DATABASE() " +
+                    "  AND table_name   = 'appoinment' " +
+                    "  AND column_name  = ?",
                     Integer.class,
                     columnName
             );

@@ -35,8 +35,8 @@ spring:
 
 services:
   auth:
-    base-url: http://localhost:8085
-    fallback-base-url: http://host.docker.internal:8085
+    base-url: http://localhost:8090
+    fallback-base-url: http://host.docker.internal:8090
   notification:
     base-url: http://localhost:8086
 

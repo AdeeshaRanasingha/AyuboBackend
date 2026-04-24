@@ -10,6 +10,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -83,14 +84,23 @@ public class AiSymptomService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
             // Wait for the native response
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    org.springframework.http.HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
 
             // 6. Unpack the AI's reply from the JSON block
             Map<String, Object> body = response.getBody();
-            List<Map<String, Object>> candidates = (List<Map<String, Object>>) body.get("candidates");
-            Map<String, Object> resContent = (Map<String, Object>) candidates.get(0).get("content");
-            List<Map<String, Object>> resParts = (List<Map<String, Object>>) resContent.get("parts");
-            String rawAiReply = (String) resParts.get(0).get("text");
+            if (body == null) {
+                throw new IllegalStateException("Gemini response body was empty");
+            }
+
+            List<Map<String, Object>> candidates = extractObjectList(body.get("candidates"));
+            Map<String, Object> resContent = extractObjectMap(candidates.get(0).get("content"));
+            List<Map<String, Object>> resParts = extractObjectList(resContent.get("parts"));
+            String rawAiReply = String.valueOf(resParts.get(0).get("text"));
 
             // 7. EXTRACT THE SPECIALTY AND CLEAN THE MESSAGE
             String displayReply = rawAiReply;
@@ -123,6 +133,25 @@ public class AiSymptomService {
     // NEW METHOD TO FETCH HISTORY
     public List<ChatMessage> getChatHistory(String patientId) {
         return chatRepository.findByPatientIdOrderByTimestampAsc(patientId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> extractObjectList(Object value) {
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .filter(Map.class::isInstance)
+                    .map(item -> (Map<String, Object>) item)
+                    .toList();
+        }
+        throw new IllegalStateException("Unexpected Gemini payload shape");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> extractObjectMap(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return (Map<String, Object>) map;
+        }
+        throw new IllegalStateException("Unexpected Gemini payload shape");
     }
 
     // MOCK DATABASE CALL - Replace with your actual Doctor Repository later!

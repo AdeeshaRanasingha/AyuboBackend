@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.core.ParameterizedTypeReference;
 
 import java.util.Map;
 import java.util.Optional;
@@ -24,7 +25,7 @@ public class ProviderDoctorResolver {
     private final AppointmentSecurityProperties appointmentSecurityProperties;
     private final RestTemplate restTemplate;
 
-    @Value("${services.auth.base-url:http://localhost:8085}")
+    @Value("${services.auth.base-url:http://localhost:8090}")
     private String authServiceBaseUrl;
 
     public Optional<Long> resolveDoctorId(String providerEmail) {
@@ -54,11 +55,11 @@ public class ProviderDoctorResolver {
                 headers.set(HttpHeaders.AUTHORIZATION, authorizationHeader);
             }
 
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     authServiceBaseUrl + "/api/provider/profile",
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
-                    Map.class
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
             );
 
             Object idValue = response.getBody() != null ? response.getBody().get("id") : null;

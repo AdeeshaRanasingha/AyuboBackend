@@ -25,7 +25,7 @@ public class ProviderDoctorResolver {
     private final TelemedicineSecurityProperties telemedicineSecurityProperties;
     private final RestTemplate restTemplate;
 
-    @Value("${services.auth.base-url:http://localhost:8085}")
+    @Value("${services.auth.base-url:http://localhost:8090}")
     private String authServiceBaseUrl;
 
     public Optional<Long> resolveDoctorId(String providerEmail) {
