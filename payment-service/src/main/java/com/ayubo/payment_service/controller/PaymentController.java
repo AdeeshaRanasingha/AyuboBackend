@@ -120,6 +120,13 @@ public class PaymentController {
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal totalAmount = subtotal.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
 
+            if (stripeApiKey == null || stripeApiKey.isBlank()) {
+                return ResponseEntity.status(500).body(Map.of(
+                        "error", "Stripe is not configured",
+                        "details", "Set STRIPE_API_KEY before starting payment-service"
+                ));
+            }
+
             Stripe.apiKey = stripeApiKey;
 
             String invoiceNumber = "INV-" + request.getAppointmentId() + "-" + System.currentTimeMillis();
@@ -190,7 +197,7 @@ public class PaymentController {
     }
 
     @GetMapping("/preview/{appointmentId}")
-    public ResponseEntity<?> previewPayment(@PathVariable Long appointmentId) {
+    public ResponseEntity<?> previewPayment(@PathVariable("appointmentId") Long appointmentId) {
         try {
             Map<String, Object> appointmentWrapper = restTemplate.getForObject(
                     appointmentBaseUrl + "/api/appointments/public/" + appointmentId,
@@ -407,7 +414,7 @@ public class PaymentController {
     }
 
     @GetMapping("/appointment/{appointmentId}")
-    public ResponseEntity<?> getLatestTransactionByAppointment(@PathVariable Long appointmentId) {
+    public ResponseEntity<?> getLatestTransactionByAppointment(@PathVariable("appointmentId") Long appointmentId) {
         TransactionRecord tx = transactionRepository.findTopByAppointmentIdOrderByCreatedAtDesc(appointmentId);
         if (tx == null) {
             return ResponseEntity.notFound().build();

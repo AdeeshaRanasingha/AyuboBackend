@@ -34,7 +34,7 @@ public class TelemedicineController {
     }
 
     @GetMapping("/sessions/{id}")
-    public ApiResponse<SessionResponse> getSessionById(@PathVariable Long id) {
+    public ApiResponse<SessionResponse> getSessionById(@PathVariable("id") Long id) {
         return ApiResponse.<SessionResponse>builder()
                 .success(true)
                 .message("Telemedicine session fetched successfully")
@@ -43,7 +43,7 @@ public class TelemedicineController {
     }
 
     @GetMapping("/appointment/{appointmentId}")
-    public ApiResponse<SessionResponse> getSessionByAppointmentId(@PathVariable Long appointmentId) {
+    public ApiResponse<SessionResponse> getSessionByAppointmentId(@PathVariable("appointmentId") Long appointmentId) {
         return ApiResponse.<SessionResponse>builder()
                 .success(true)
                 .message("Telemedicine session fetched successfully")
@@ -62,7 +62,7 @@ public class TelemedicineController {
 
     @PatchMapping("/sessions/{id}/start")
     public ApiResponse<SessionResponse> startSession(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody SessionStatusUpdateRequest request) {
         return ApiResponse.<SessionResponse>builder()
                 .success(true)
@@ -73,7 +73,7 @@ public class TelemedicineController {
 
     @PatchMapping("/sessions/{id}/end")
     public ApiResponse<SessionResponse> endSession(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @Valid @RequestBody SessionStatusUpdateRequest request) {
         return ApiResponse.<SessionResponse>builder()
                 .success(true)

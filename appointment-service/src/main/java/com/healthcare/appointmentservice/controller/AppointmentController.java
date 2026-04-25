@@ -148,7 +148,7 @@ public class AppointmentController {
 
     @PatchMapping("/{id}/payment-status/paid")
     public ApiResponse<AppointmentResponse> markPaymentAsPaid(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestHeader(value = "X-Internal-Token", required = false) String token
     ) {
         if (internalToken == null || internalToken.isBlank() || !internalToken.equals(token)) {
@@ -173,7 +173,7 @@ public class AppointmentController {
     }
 
     @GetMapping("/public/{id}")
-    public ApiResponse<AppointmentResponse> getAppointmentPublic(@PathVariable Long id) {
+    public ApiResponse<AppointmentResponse> getAppointmentPublic(@PathVariable("id") Long id) {
         return ApiResponse.<AppointmentResponse>builder()
                 .success(true)
                 .message("Public appointment fetched successfully")
@@ -183,7 +183,7 @@ public class AppointmentController {
 
     @PatchMapping("/{id}/payment-status")
     public ApiResponse<AppointmentResponse> updatePaymentStatus(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestBody PaymentStatusUpdateRequest request
     ) {
         return ApiResponse.<AppointmentResponse>builder()
