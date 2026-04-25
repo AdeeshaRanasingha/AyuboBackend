@@ -22,7 +22,7 @@ spring:
 
 services:
   auth:
-    base-url: http://localhost:8090
+    base-url: http://localhost:8085
 
 springdoc:
   api-docs:

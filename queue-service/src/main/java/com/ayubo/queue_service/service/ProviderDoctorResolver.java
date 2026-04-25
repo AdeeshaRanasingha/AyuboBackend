@@ -23,7 +23,7 @@ public class ProviderDoctorResolver {
 
     private final RestTemplate restTemplate;
 
-    @Value("${services.auth.base-url:http://localhost:8090}")
+    @Value("${services.auth.base-url:http://localhost:8085}")
     private String authServiceBaseUrl;
 
     public Long requireDoctorIdForCurrentProvider() {
