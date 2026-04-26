@@ -1,16 +1,15 @@
 server:
   port: ${SERVER_PORT:8086}
   error:
-    # Helps debug 500s from curl/Postman (see "message" in JSON). Disable in production if you expose internals.
     include-message: always
 
 spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:mysql://localhost:3306/ayubo_notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: 
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/ayubo_notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -33,16 +32,12 @@ spring:
 
 notification:
   email:
-    # When true, requires spring.mail.username / MAIL_USERNAME (and password) to actually send.
     enabled: ${NOTIFICATION_EMAIL_ENABLED:true}
-    # Defaults to MAIL_USERNAME if NOTIFICATION_EMAIL_FROM is unset (Gmail etc. need a matching From).
     from: ${NOTIFICATION_EMAIL_FROM:${MAIL_USERNAME:}}
   sms:
-    # When true, requires Twilio env vars (see README). Disabled destinations still no-op safely.
     enabled: ${NOTIFICATION_SMS_ENABLED:true}
     twilio:
       account-sid: ${TWILIO_ACCOUNT_SID:}
       auth-token: ${TWILIO_AUTH_TOKEN:}
-      # Use either a Twilio phone number OR a Messaging Service SID (from Twilio console tutorial).
       from-number: ${TWILIO_FROM_NUMBER:}
       messaging-service-sid: ${TWILIO_MESSAGING_SERVICE_SID:}

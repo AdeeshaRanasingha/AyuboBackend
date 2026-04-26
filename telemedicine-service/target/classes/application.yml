@@ -14,18 +14,18 @@ telemedicine:
 
 services:
   auth:
-    base-url: http://localhost:8085
+    base-url: ${SERVICES_AUTH_BASE_URL:http://localhost:8085}
   appointment:
-    base-url: http://localhost:8082
+    base-url: ${SERVICES_APPOINTMENT_BASE_URL:http://localhost:8082}
 
 spring:
   application:
     name: telemedicine-service
   datasource:
-    url: jdbc:mysql://localhost:3306/ayubo_telemedicine_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/ayubo_telemedicine_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: root
-    password:
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update
