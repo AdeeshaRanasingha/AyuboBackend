@@ -1,1 +1,1 @@
-﻿- [To Ayubo Frontend Repository]([deploymentDocumentation.md](https://github.com/AdeeshaRanasingha/AyuboFrontend))
+[To Ayubo Frontend Repository](https://github.com/AdeeshaRanasingha/AyuboFrontend)
